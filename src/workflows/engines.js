@@ -607,7 +607,10 @@ export const WORKFLOWS = [
     run: (v, ctx) =>
       agentJob(
         {
-          prompt: `Upscale the image to ${v.resolution} resolution. Keep every detail, texture, colour, face, pose and garment exactly as in the original. Do not change the composition.`,
+          prompt:
+            `Upscale this image to ${v.resolution} resolution. This is an upscale only: do not redraw, restyle, re-pose, re-light or re-crop anything. ` +
+            'Keep the face, identity, pose, garment, colours, background and composition exactly as they are. ' +
+            'Only add real fine detail (fabric weave, embroidery, zari, hair, skin texture) and remove blur and compression artefacts. Do not add or remove any element.',
           images: [srcOf(v.image)],
           resolution: v.resolution,
           generation_mode: v.generation_mode,

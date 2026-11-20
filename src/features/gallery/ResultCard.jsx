@@ -5,12 +5,18 @@ import { renderImage, cropRect, RATIOS, WIDTHS, FORMATS, DEFAULT_SETTINGS } from
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const sameAs = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-/** A generated look: live preview, quick tools, the full tools overlay, and download. */
-export default function ResultBubble({ m, onOpen }) {
+const KIND_LABEL = { upscale: 'Upscaled', cutout: 'Background removed' };
+
+/**
+ * A generated image: live preview, quick tools, the full tools overlay, and download.
+ * onTool(tool, src, opts) runs a dedicated module on this image ('upscale' | 'remove_background').
+ */
+export default function ResultBubble({ m, onOpen, onTool, busy = false }) {
   const [s, setS] = useState(DEFAULT_SETTINGS);
   const [preview, setPreview] = useState(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [expired, setExpired] = useState(false);
   const urlRef = useRef(null);
   const src = m.images[0];
   const key = JSON.stringify(s);
@@ -86,12 +92,29 @@ export default function ResultBubble({ m, onOpen }) {
       <span className="avatar" aria-hidden="true">✦</span>
       <div className="bubble result">
         <p>{m.text}</p>
-        {m.seconds != null && <small className="gen-time">Created in {m.seconds}s</small>}
+        {(KIND_LABEL[m.kind] || m.seconds != null) && (
+          <small className="gen-time">
+            {[KIND_LABEL[m.kind], m.seconds != null && `${m.seconds}s`, m.credits != null && `${m.credits} credit${m.credits === 1 ? '' : 's'}`].filter(Boolean).join(' · ')}
+          </small>
+        )}
 
-        <button type="button" className="preview-btn" onClick={() => onOpen(m.images, 0)} aria-label="Open look full screen">
-          <img src={preview ?? src} alt="Your look" className={preview ? 'ready' : 'loading'} />
-        </button>
+        {expired ? (
+          <div className="result-expired" role="note">
+            This image is no longer available. Results are kept for about 3 days, so download the ones you want to keep.
+          </div>
+        ) : (
+          <button type="button" className="preview-btn" onClick={() => onOpen(m.images, 0)} aria-label="Open image full screen">
+            <img src={preview ?? src} alt="Your look" className={preview ? 'ready' : 'loading'} onError={() => !preview && setExpired(true)} />
+          </button>
+        )}
         {m.images.length > 1 && <small className="muted">Showing 1 of {m.images.length}. Download saves all of them.</small>}
+
+        {onTool && !expired && (
+          <div className="tools" role="toolbar" aria-label="Improve this image">
+            {m.kind !== 'upscale' && <Tool disabled={busy} onClick={() => onTool('upscale', src, { resolution: '4k' })} icon="⤢" label="Upscale 4K" />}
+            {m.kind !== 'cutout' && <Tool disabled={busy} onClick={() => onTool('remove_background', src, {})} icon="◌" label="Remove background" />}
+          </div>
+        )}
 
         <div className="tools" role="toolbar" aria-label="Quick tools">
           <Tool active={s.mirror} onClick={() => setS((v) => ({ ...v, mirror: !v.mirror }))} icon="⇋" label="Mirror" />

@@ -1,7 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useRoute } from '@/lib/router.js';
+// Chat state sits above the routes, so a running chat job continues while other pages are open.
+import { ChatProvider } from '@/features/chat/ChatProvider.jsx';
 import { OUTFIT_MODES } from '@/workflows/outfitModes.js';
-import { LogOut, Table2, User } from 'lucide-react';
+import { ChevronsLeft, LogOut, Menu, Table2, User } from 'lucide-react';
+import { useMediaQuery } from '@/hooks/useMediaQuery.js';
+import { useStoredState } from '@/hooks/useStoredState.js';
 import { WfIcon } from '@/lib/icons.jsx';
 import { Toaster } from '@/components/ui/sonner.jsx';
 import { notify } from '@/lib/notify.js';
@@ -14,6 +18,15 @@ import PageLoader from '@/components/common/PageLoader.jsx';
 
 // Every page has its own URL path: /<id>. 'ai-studio' and the form workflows come from NAV_IDS.
 const ROUTE_IDS = [...NAV_IDS, 'bulk'];
+
+// Sidebar groups: the workflow groups from engines.js, plus Batch.
+const NAV = [
+  ...NAV_GROUPS.map((g) => ({
+    g,
+    items: WORKFLOWS.filter((w) => w.group === g && NAV_IDS.includes(w.id)).map((w) => ({ id: w.id, label: w.label, hint: w.short, icon: <WfIcon name={w.icon} /> })),
+  })),
+  { g: 'Batch', items: [{ id: 'bulk', label: 'Bulk grid', hint: 'Models × garments', icon: <Table2 aria-hidden="true" /> }] },
+];
 
 const Workspace = lazy(() => import('@/features/workspace/Workspace.jsx'));
 const ChatStudio = lazy(() => import('@/features/chat/ChatStudio.jsx'));
@@ -36,6 +49,30 @@ export default function App() {
     notify({ severity: 'error', summary: f.title, detail: f.detail, life: 7000 });
   }, []);
   const slotError = (msg) => notify({ severity: 'warn', summary: 'Photo', detail: msg, life: 4000 });
+
+  // Sidebar: on desktop it collapses to an icon rail (remembered); on phones it is a slide-in drawer.
+  const isMobile = useMediaQuery('(max-width: 900px)');
+  const [collapsed, setCollapsed] = useStoredState('fr.sidebarCollapsed', false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const railCollapsed = collapsed && !isMobile;
+  const toggleNav = useCallback(() => (isMobile ? setDrawerOpen((o) => !o) : setCollapsed((c) => !c)), [isMobile, setCollapsed]);
+  const go = (id) => {
+    navigate(id);
+    setDrawerOpen(false);
+  };
+  useEffect(() => {
+    if (!isMobile) setDrawerOpen(false);
+  }, [isMobile]);
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        toggleNav();
+      } else if (e.key === 'Escape') setDrawerOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [toggleNav]);
 
   const { credits, loading: creditsLoading, refresh: refreshCredits } = useCredits(notifyError);
   const run = useWorkflowRun({ notifyError, onSettled: refreshCredits });
@@ -86,11 +123,18 @@ export default function App() {
   const shownResult = run.result && run.result.wfId === wf?.id ? run.result : null;
 
   return (
+    <ChatProvider onJobSettled={refreshCredits}>
     <div className="shell">
       <Toaster position="top-right" richColors closeButton />
 
       <header className="topbar">
         <div className="brand">
+          {/* Phones only: opens the menu drawer. On desktop the sidebar has its own collapse button (and Ctrl+B). */}
+          {isMobile && (
+            <button type="button" className="nav-toggle" onClick={toggleNav} aria-controls="app-nav" aria-expanded={drawerOpen} aria-label={drawerOpen ? 'Close menu' : 'Open menu'}>
+              <Menu />
+            </button>
+          )}
           <span className="brand-mark" aria-hidden="true">
             <svg viewBox="0 0 32 32">
               <path d="M16 4c2 0 3 1.4 3 3 0 1.4-1 2.2-2.2 2.9L16 10.4 26.5 17c1.4.9 1.2 3-1.2 3H6.7c-2.4 0-2.6-2.1-1.2-3L16 10.4" />
@@ -121,27 +165,47 @@ export default function App() {
         </div>
       </header>
 
-      <div className="body">
-        <nav className="sidebar" aria-label="Workflows">
-          {NAV_GROUPS.map((g) => (
+      <div className={`body ${railCollapsed ? 'sb-collapsed' : ''}`}>
+        <nav id="app-nav" className="sidebar" aria-label="Workflows" data-collapsed={railCollapsed} data-open={isMobile && drawerOpen}>
+          {NAV.map(({ g, items }) => (
             <div className="nav-group" key={g}>
-              <div className="nav-title">{g}</div>
-              {WORKFLOWS.filter((w) => w.group === g && NAV_IDS.includes(w.id)).map((w) => (
-                <button key={w.id} type="button" className={`nav-item ${active === w.id ? 'on' : ''}`} onClick={() => navigate(w.id)} title={w.short}>
-                  <WfIcon name={w.icon} />
-                  <span>{w.label}</span>
+              <div className="nav-title">
+                <span>{g}</span>
+              </div>
+              {items.map((it) => (
+                <button
+                  key={it.id}
+                  type="button"
+                  className={`nav-item ${active === it.id ? 'on' : ''}`}
+                  aria-current={active === it.id ? 'page' : undefined}
+                  data-tip={it.label}
+                  title={railCollapsed ? undefined : it.hint}
+                  onClick={() => go(it.id)}
+                >
+                  {it.icon}
+                  <span className="nav-label">{it.label}</span>
                 </button>
               ))}
             </div>
           ))}
-          <div className="nav-group">
-            <div className="nav-title">Batch</div>
-            <button type="button" className={`nav-item ${active === 'bulk' ? 'on' : ''}`} onClick={() => navigate('bulk')}>
-              <Table2 />
-              <span>Bulk grid</span>
+
+          {!isMobile && (
+            <button
+              type="button"
+              className="nav-item nav-collapse"
+              onClick={toggleNav}
+              data-tip="Expand sidebar (Ctrl+B)"
+              title={collapsed ? undefined : 'Collapse sidebar (Ctrl+B)'}
+              aria-controls="app-nav"
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              <ChevronsLeft aria-hidden="true" />
+              <span className="nav-label">Collapse</span>
             </button>
-          </div>
+          )}
         </nav>
+        {isMobile && drawerOpen && <div className="nav-backdrop" onClick={() => setDrawerOpen(false)} aria-hidden="true" />}
 
         <main className="content">
           <Suspense fallback={<PageLoader />}>
@@ -180,5 +244,6 @@ export default function App() {
         </main>
       </div>
     </div>
+    </ChatProvider>
   );
 }

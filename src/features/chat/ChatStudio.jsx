@@ -1,21 +1,41 @@
-import { notify } from '@/lib/notify.js';
 import { useEffect, useRef, useState } from 'react';
+import {
+  ArrowUp, Check, CircleStop, Download, Eraser, Footprints, History, ImageIcon, Loader2, Maximize2, MessageSquare, Palette, Paperclip, Pencil,
+  PersonStanding, Plus, RotateCcw, Scan, Search, Shirt, Sparkles, Square, SquarePen, Trash2, TriangleAlert, X,
+} from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
+import { Input } from '@/components/ui/input.jsx';
+import { notify } from '@/lib/notify.js';
 import Lightbox from '@/components/common/Lightbox.jsx';
-import { fileToJpegDataURI, downloadImage } from '@/api/fashn.js';
-import { agentJob } from '@/workflows/engines.js';
-import { chatTurn, enhanceRequest } from '@/agents/chatAgent.js';
+import PageLoader from '@/components/common/PageLoader.jsx';
+import FittingLoader from '@/components/common/FittingLoader.jsx';
+import { downloadImage } from '@/api/fashn.js';
+import { prepareFile } from '@/lib/imageIntake.js';
+import { enhanceRequest } from '@/agents/chatAgent.js';
 import { friendlyError } from '@/lib/messages.js';
 import ResultBubble from '@/features/gallery/ResultCard.jsx';
-import FittingLoader from '@/components/common/FittingLoader.jsx';
+import { useChat } from './ChatProvider.jsx';
+import { uid } from './chatReducer.js';
 
 const MAX_PHOTOS = 8;
 const WELCOME_SUGGESTIONS = ['Dress a model in my garment', 'Put these shoes on the model', 'Change the background to a studio'];
-const PHOTO_SUGGESTIONS = ['Put these on the model', 'Use this as the background', 'Dress the model in these'];
-const RESULT_SUGGESTIONS = ['Make it longer', 'Change the colour', 'Different pose', 'Change the background', 'Make it full body'];
-const MORE_SUGGESTIONS = ['Full body, front view', 'Plain grey studio background', 'Make the top and bottom match'];
+const PHOTO_SUGGESTIONS = ['Put these on the model', 'Use this as the background', 'Upscale this to 4K'];
+const RESULT_SUGGESTIONS = ['Upscale to 4K', 'Remove the background', 'Change the colour', 'Different pose', 'Make it full body'];
+const MORE_SUGGESTIONS = ['Full body, front view', 'Plain grey studio background', 'Make the top and bottom match', 'Upscale and download'];
 
-let seq = 0;
-const nid = () => `m${Date.now()}-${seq++}`;
+// A small icon for each suggestion tag, picked from its words.
+const TAG_ICONS = [
+  [/upscale|4k|hd/i, Maximize2],
+  [/download/i, Download],
+  [/remove the background/i, Eraser],
+  [/background|studio/i, ImageIcon],
+  [/colou?r/i, Palette],
+  [/pose/i, PersonStanding],
+  [/full body|front view/i, Scan],
+  [/shoes/i, Footprints],
+  [/dress|garment|top|put these|wear/i, Shirt],
+];
+const suggestIcon = (text) => TAG_ICONS.find(([re]) => re.test(text))?.[1] ?? Sparkles;
 
 /** Suggestions for the current moment, plus any that match what the user is typing. */
 function suggestFor(input, pending, lastResult, onlyWelcome) {
@@ -25,45 +45,49 @@ function suggestFor(input, pending, lastResult, onlyWelcome) {
   return [...new Set([...typed, ...base])].slice(0, 5);
 }
 
+/** Seconds since `startedAt`, ticking while a job runs. */
+function useElapsed(startedAt) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!startedAt) return;
+    const t = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(t);
+  }, [startedAt]);
+  return startedAt ? Math.max(0, Math.floor((now - startedAt) / 1000)) : 0;
+}
+
 export default function ChatStudio() {
-  const [messages, setMessages] = useState([
-    {
-      id: 'welcome',
-      role: 'bot',
-      text: "Hi! Upload a model photo, a garment, shoes or a background, or just tell me what you'd like. I'll ask if I need anything.",
-    },
-  ]);
-  const [photos, setPhotos] = useState([]); // every photo sent in this chat: {id, src}
+  const { state, active, run, send, runTool, resend, stop, newChat, selectChat, deleteChat } = useChat();
   const [pending, setPending] = useState([]); // photos attached to the message being written
   const [input, setInput] = useState('');
-  const [busy, setBusy] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
-  const [status, setStatus] = useState('');
-  const [lastResult, setLastResult] = useState(null); // {url, prompt}
   const [lightbox, setLightbox] = useState(null); // {images, index}
   const [dragging, setDragging] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const [creating, setCreating] = useState(false); // a look is being rendered
-  const [loadPhoto, setLoadPhoto] = useState(null); // photo shown behind the fitting animation
   const [atBottom, setAtBottom] = useState(true);
-
-  // Live timer while a look is being made.
-  useEffect(() => {
-    if (!busy) return;
-    const start = Date.now();
-    setElapsed(0);
-    const t = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 250);
-    return () => clearInterval(t);
-  }, [busy]);
   const logRef = useRef(null);
   const fileRef = useRef(null);
   const taRef = useRef(null);
-  const abortRef = useRef(null);
+
+  const busy = !!run; // one job at a time, in any chat
+  const busyHere = run?.chatId === active?.id;
+  const elapsed = useElapsed(run?.startedAt);
+
+  // A different chat starts with an empty composer, scrolled to the end.
+  useEffect(() => {
+    setPending([]);
+    setInput('');
+    setAtBottom(true);
+  }, [active?.id]);
 
   // Follow the conversation only while the reader is at the bottom.
   useEffect(() => {
     if (atBottom) logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages, busy, atBottom]);
+  }, [active?.messages, busyHere, atBottom]);
+
+  // When a job ends, give keyboard focus back to the message box if it was lost.
+  useEffect(() => {
+    if (!busy && (document.activeElement === document.body || document.activeElement == null)) taRef.current?.focus();
+  }, [busy]);
 
   // The text box grows with the text instead of scrolling inside a small box.
   useEffect(() => {
@@ -73,27 +97,19 @@ export default function ChatStudio() {
     t.style.height = `${Math.min(t.scrollHeight, 320)}px`;
   }, [input]);
 
-  const say = (text, extra = {}) => setMessages((m) => [...m, { id: nid(), role: 'bot', text, ...extra }]);
+  if (!state.loaded || !active) return <PageLoader />;
 
   async function addFiles(fileList) {
-    const files = [...(fileList ?? [])].filter((f) => f.type.startsWith('image/'));
-    const room = MAX_PHOTOS - pending.length;
+    const files = [...(fileList ?? [])];
     if (!files.length) return;
-    if (room <= 0) {
-      notify({ severity: 'warn', summary: 'Photos', detail: `You can attach up to ${MAX_PHOTOS} photos per message.`, life: 4000 });
-      return;
-    }
-    try {
-      const made = await Promise.all(
-        files.slice(0, room).map(async (f) => {
-          const r = await fileToJpegDataURI(f);
-          return { id: nid(), src: r.dataURI };
-        })
-      );
-      setPending((p) => [...p, ...made]);
-    } catch (e) {
-      notify({ severity: 'warn', summary: 'Photo', detail: e.message, life: 4000 });
-    }
+    const room = MAX_PHOTOS - pending.length;
+    if (room <= 0) return notify({ severity: 'warn', summary: 'Photos', detail: `You can attach up to ${MAX_PHOTOS} photos per message.` });
+    const results = await Promise.allSettled(files.slice(0, room).map((f) => prepareFile(f)));
+    const ok = results.filter((r) => r.status === 'fulfilled').map((r) => ({ id: uid(), src: r.value.src }));
+    const bad = results.find((r) => r.status === 'rejected');
+    if (bad) notify({ severity: 'warn', summary: 'Photo', detail: bad.reason?.message });
+    if (files.length > room) notify({ severity: 'warn', summary: 'Photos', detail: `Only ${room} more photo(s) fit in this message.` });
+    if (ok.length) setPending((p) => [...p, ...ok]);
   }
 
   async function enhance() {
@@ -101,211 +117,180 @@ export default function ChatStudio() {
     if (!t || enhancing || busy) return;
     setEnhancing(true);
     try {
-      const better = await enhanceRequest({ text: t, photoCount: photos.length + pending.length });
-      setInput(better);
+      setInput(await enhanceRequest({ text: t, photoCount: active.photos.length + pending.length }));
     } catch (e) {
       const f = friendlyError(e);
-      notify({ severity: 'warn', summary: f.title, detail: f.detail, life: 4000 });
+      notify({ severity: 'warn', summary: f.title, detail: f.detail });
     } finally {
       setEnhancing(false);
     }
   }
 
-  async function send(textOverride) {
+  function submit(textOverride) {
     const text = (textOverride ?? input).trim();
-    const attached = pending;
-    if (busy || (!text && attached.length === 0)) return;
-
-    // Earlier turns as plain text for the assistant.
-    const history = messages
-      .filter((m) => m.text)
-      .slice(-12)
-      .map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
-
-    const nextPhotos = [...photos, ...attached];
+    if (busy || (!text && !pending.length)) return;
     setAtBottom(true);
-    setMessages((m) => [...m, { id: nid(), role: 'user', text, images: attached.map((p) => p.src) }]);
-    setPhotos(nextPhotos);
+    send(active.id, text, pending);
     setPending([]);
     setInput('');
-    setBusy(true);
-    setStatus('Thinking…');
-
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-    try {
-      const turn = await chatTurn({
-        history,
-        userText: text,
-        photos: nextPhotos,
-        newCount: attached.length,
-        lastPrompt: lastResult?.prompt,
-        hasPrevious: !!lastResult,
-        signal: ctrl.signal,
-      });
-
-      if (!turn.generate) {
-        say(turn.reply);
-        return;
-      }
-
-      say(turn.reply);
-      const images = [];
-      if (turn.use_previous && lastResult) images.push(lastResult.url);
-      for (const n of turn.use_photos) {
-        const p = nextPhotos[n - 1];
-        if (p) images.push(p.src);
-      }
-
-      const t0 = Date.now();
-      setLoadPhoto(images[0] ?? null);
-      setCreating(true);
-      setStatus('Creating your look…');
-      const out = await agentJob(
-        { prompt: turn.prompt, images: images.slice(0, 6), resolution: '1k', generation_mode: 'balanced' },
-        { signal: ctrl.signal, onStatus: setStatus }
-      );
-
-      if (!out.images.length) {
-        say('I could not create that one. Try describing it a little differently.');
-        return;
-      }
-      setMessages((m) => [
-        ...m,
-        { id: nid(), role: 'result', text: 'Here is your look. Want anything changed?', images: out.images, prompt: turn.prompt, used: images, seconds: Math.round((Date.now() - t0) / 1000) },
-      ]);
-      setLastResult({ url: out.images[0], prompt: turn.prompt });
-    } catch (e) {
-      if (ctrl.signal.aborted) say('Stopped. Send a message whenever you are ready.');
-      else {
-        const f = friendlyError(e);
-        say(`${f.title}. ${f.detail}`);
-      }
-    } finally {
-      setBusy(false);
-      setCreating(false);
-      setStatus('');
-      abortRef.current = null;
-    }
   }
 
-  const suggestions = busy ? [] : suggestFor(input, pending, lastResult, messages.length <= 1);
+  const suggestions = busy ? [] : suggestFor(input, pending, active.lastResult, active.messages.length <= 1);
 
   return (
-    <div
-      className={`chat ${dragging ? 'drop' : ''}`}
-      onDragOver={(e) => {
-        e.preventDefault();
-        setDragging(true);
-      }}
-      onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget)) setDragging(false);
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragging(false);
-        addFiles(e.dataTransfer.files);
-      }}
-    >
-      <header className="chat-head">
-        <span className="avatar" aria-hidden="true">✦</span>
-        <div>
-          <b>AI Studio</b>
-          <small>{busy ? status || 'Working on it…' : 'Your styling assistant'}</small>
-        </div>
-      </header>
-
       <div
-        className="chat-log"
-        ref={logRef}
-        aria-live="polite"
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 120);
+        className={`chat ${dragging ? 'drop' : ''}`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) setDragging(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          addFiles(e.dataTransfer.files);
         }}
       >
-        {messages.map((m) => (
-          <Message key={m.id} m={m} onOpen={(images, index) => setLightbox({ images, index })} />
-        ))}
-        {busy && creating && (
-          <div className="msg bot loader-msg">
-            <FittingLoader image={loadPhoto} status={status} elapsed={elapsed} onCancel={() => abortRef.current?.abort()} />
+        <header className="chat-head">
+          <span className="avatar" aria-hidden="true">✦</span>
+          <div className="chat-title">
+            <h2 id="chat-title">{active.title}</h2>
+            <p className="chat-status" role="status">
+              {busyHere ? run.status || 'Working on it…' : busy ? 'Busy in another chat…' : 'Your styling assistant'}
+            </p>
           </div>
-        )}
-        {busy && !creating && (
-          <div className="msg bot">
-            <span className="avatar" aria-hidden="true">✦</span>
-            <div className="bubble typing" role="status">
-              <span />
-              <span />
-              <span />
-              {status && <small>{status}</small>}
-              <small className="elapsed">{elapsed}s</small>
+          <div className="chat-actions">
+            <SessionMenu state={state} run={run} onSelect={selectChat} onDelete={deleteChat} />
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={newChat}
+              disabled={active.messages.length <= 1}
+              data-tip={active.messages.length <= 1 ? 'Already a new chat' : 'New chat'}
+              aria-label="New chat"
+            >
+              <SquarePen aria-hidden="true" />
+            </button>
+          </div>
+        </header>
+
+        <div
+          className="chat-log"
+          ref={logRef}
+          role="log"
+          aria-labelledby="chat-title"
+          aria-live="polite"
+          aria-relevant="additions"
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 120);
+          }}
+        >
+          {active.messages.map((m) => (
+            <Message
+              key={m.id}
+              m={m}
+              busy={busy}
+              onOpen={(images, index) => setLightbox({ images, index })}
+              onTool={(tool, src, opts) => runTool(active.id, { tool, src, ...opts })}
+              onResend={(text) => {
+                setAtBottom(true);
+                resend(active.id, m.id, text);
+              }}
+            />
+          ))}
+          {busyHere && run.creating && (
+            <div className="msg bot loader-msg">
+              <FittingLoader image={run.photo} status={run.status} elapsed={elapsed} onCancel={stop} />
             </div>
-          </div>
-        )}
-        {!atBottom && (
-          <button
-            type="button"
-            className="jump"
-            onClick={() => {
-              logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' });
-              setAtBottom(true);
-            }}
-          >
-            ↓ New messages
-          </button>
-        )}
-      </div>
+          )}
+          {busyHere && !run.creating && (
+            <div className="msg bot">
+              <span className="avatar" aria-hidden="true">✦</span>
+              <div className="bubble typing" role="status">
+                <span />
+                <span />
+                <span />
+                {run.status && <small>{run.status}</small>}
+                <small className="elapsed">{elapsed}s</small>
+              </div>
+            </div>
+          )}
+          {!atBottom && (
+            <button
+              type="button"
+              className="jump"
+              onClick={() => {
+                logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' });
+                setAtBottom(true);
+              }}
+            >
+              ↓ New messages
+            </button>
+          )}
+        </div>
 
-      <div className="composer-wrap">
-        {suggestions.length > 0 && (
-          <div className="suggest" aria-label="Suggestions">
-            {suggestions.map((s) => (
-              <button key={s} type="button" onClick={() => setInput(s)}>
-                {s}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="composer">
-          {pending.length > 0 && (
-            <div className="pending">
-              {pending.map((p) => (
-                <div className="pending-chip" key={p.id}>
-                  <img src={p.src} alt="Attached photo" />
-                  <button type="button" aria-label="Remove photo" onClick={() => setPending((x) => x.filter((y) => y.id !== p.id))}>
-                    ×
+        <div className="cwrap">
+          {suggestions.length > 0 && (
+            <div className="ctags" role="group" aria-label="Suggestions">
+              {suggestions.map((s) => {
+                const Icon = suggestIcon(s);
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    className="ctag"
+                    onClick={() => {
+                      setInput(s);
+                      taRef.current?.focus();
+                    }}
+                  >
+                    <Icon aria-hidden="true" />
+                    {s}
                   </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
-          <div className="composer-row">
-            <button
-              type="button"
-              className="attach"
-              aria-label="Attach photos"
-              onClick={() => fileRef.current?.click()}
-              disabled={busy || pending.length >= MAX_PHOTOS}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M21 12.5 12.6 20.9a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8" />
-              </svg>
-            </button>
+          <div className={`cbox ${busy ? 'is-busy' : ''}`}>
+            {pending.length > 0 && (
+              <div className="cattach" role="group" aria-label={`${pending.length} of ${MAX_PHOTOS} photos attached`}>
+                {pending.map((p, i) => (
+                  <div className="cattach-item" key={p.id}>
+                    <img src={p.src} alt={`Attached photo ${i + 1}`} />
+                    <button type="button" className="cattach-remove" aria-label={`Remove attached photo ${i + 1}`} onClick={() => setPending((x) => x.filter((y) => y.id !== p.id))}>
+                      <X aria-hidden="true" />
+                    </button>
+                  </div>
+                ))}
+                {pending.length < MAX_PHOTOS && (
+                  <button type="button" className="cattach-add" aria-label="Attach more photos" onClick={() => fileRef.current?.click()} disabled={busy}>
+                    <Plus aria-hidden="true" />
+                  </button>
+                )}
+                <span className="cattach-count" aria-hidden="true">
+                  {pending.length}/{MAX_PHOTOS}
+                </span>
+              </div>
+            )}
+
             <textarea
               ref={taRef}
+              className="cbox-input"
               rows={1}
               value={input}
-              disabled={busy}
-              placeholder={pending.length ? 'Say what to do with these photos…' : 'Describe the look, or add photos…'}
+              readOnly={busy}
+              aria-disabled={busy || undefined}
+              aria-label="Message"
+              placeholder={busy && !busyHere ? 'Wait for the other chat to finish…' : pending.length ? 'Say what to do with these photos…' : 'Describe the look, or add photos…'}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                   e.preventDefault();
-                  send();
+                  submit();
                 }
               }}
               onPaste={(e) => {
@@ -316,38 +301,38 @@ export default function ChatStudio() {
                 }
               }}
             />
-            {busy ? (
-              <button type="button" className="send stop" aria-label="Stop" onClick={() => abortRef.current?.abort()}>
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <rect x="6" y="6" width="12" height="12" rx="2" />
-                </svg>
-              </button>
-            ) : (
+
+            <div className="cbox-bar">
               <button
                 type="button"
-                className="send"
-                aria-label="Send"
-                onClick={() => send()}
-                disabled={!input.trim() && pending.length === 0}
+                className="cbtn"
+                aria-label="Attach photos"
+                data-tip="Attach photos"
+                onClick={() => fileRef.current?.click()}
+                disabled={busy || pending.length >= MAX_PHOTOS}
               >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" />
-                </svg>
+                <Paperclip aria-hidden="true" />
               </button>
-            )}
-          </div>
-
-          <div className="composer-foot">
-            <button type="button" className="enhance" onClick={enhance} disabled={!input.trim() || enhancing || busy}>
-              {enhancing ? 'Improving…' : '✦ Improve my request'}
-            </button>
-            <small className="composer-hint">Enter to send · Shift+Enter for a new line</small>
+              <button type="button" className="cbtn cbtn-text" onClick={enhance} disabled={!input.trim() || enhancing || busy}>
+                {enhancing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
+                {enhancing ? 'Improving…' : 'Improve'}
+              </button>
+              {busyHere ? (
+                <button type="button" className="csend stop" aria-label="Stop" onClick={stop}>
+                  <Square aria-hidden="true" />
+                </button>
+              ) : (
+                <button type="button" className="csend" aria-label="Send" onClick={() => submit()} disabled={busy || (!input.trim() && !pending.length)}>
+                  <ArrowUp aria-hidden="true" />
+                </button>
+              )}
+            </div>
           </div>
 
           <input
             ref={fileRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp"
             multiple
             hidden
             onChange={(e) => {
@@ -356,50 +341,238 @@ export default function ChatStudio() {
             }}
           />
         </div>
-      </div>
 
-      {lightbox && (
-        <Lightbox
-          images={lightbox.images}
-          index={lightbox.index}
-          onIndex={(i) => setLightbox((l) => ({ ...l, index: i }))}
-          onClose={() => setLightbox(null)}
-          onDownload={(url, i) => downloadImage(url, `look-${i + 1}.png`)}
-        />
-      )}
-    </div>
+        {lightbox && (
+          <Lightbox
+            images={lightbox.images}
+            index={lightbox.index}
+            onIndex={(i) => setLightbox((l) => ({ ...l, index: i }))}
+            onClose={() => setLightbox(null)}
+            onDownload={(url, i) => downloadImage(url, `look-${i + 1}.png`)}
+          />
+        )}
+      </div>
   );
 }
 
-function Message({ m, onOpen }) {
-  if (m.role === 'user') {
-    return (
-      <div className="msg user">
-        <div className="bubble">
-          {m.images?.length > 0 && (
-            <div className="bubble-photos">
-              {m.images.map((src, i) => (
-                <button key={i} type="button" className="in-thumb big" onClick={() => onOpen(m.images, i)} aria-label={`Open your photo ${i + 1} full screen`}>
-                  <img src={src} alt="Your photo" />
-                </button>
-              ))}
-            </div>
-          )}
-          {m.text && <p>{m.text}</p>}
-        </div>
-      </div>
-    );
-  }
+function timeAgo(ts) {
+  const s = Math.round((Date.now() - ts) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return new Date(ts).toLocaleDateString();
+}
 
-  if (m.role === 'result') return <ResultBubble m={m} onOpen={onOpen} />;
+/**
+ * Chat header title that opens the list of saved chats (switch, search, delete with a confirm step).
+ * Keeps the whole page width for the conversation.
+ */
+function SessionMenu({ state, run, onSelect, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [confirmId, setConfirmId] = useState(null);
+  const count = state.order.length;
+  const q = query.trim().toLowerCase();
+  const ids = state.order.filter((id) => !q || state.chats[id].title.toLowerCase().includes(q));
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) {
+          setQuery('');
+          setConfirmId(null);
+        }
+      }}
+    >
+      <PopoverTrigger asChild>
+        {/* native button: Radix needs a ref on the trigger (shadcn's Button does not forward refs on React 18) */}
+        <button type="button" className="icon-btn" data-tip="Chat history" aria-label={`Chat history, ${count} chat${count === 1 ? '' : 's'}`}>
+          <History aria-hidden="true" />
+          {count > 1 && (
+            <span className="icon-badge" aria-hidden="true">
+              {count > 99 ? '99+' : count}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+
+      <PopoverContent align="end" sideOffset={8} className="session-menu w-[min(380px,calc(100vw-2rem))] p-0">
+        <div className="session-search">
+          <Search className="size-4" aria-hidden="true" />
+          <Input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search chats…" aria-label="Search chats" className="h-8 border-0 shadow-none focus-visible:ring-0" />
+        </div>
+
+        <ul className="session-list" aria-label="Saved chats">
+          {ids.length === 0 && <li className="session-empty">No chats match “{query}”.</li>}
+          {ids.map((id) => {
+            const c = state.chats[id];
+            const on = id === state.activeId;
+            return (
+              <li key={id} className={on ? 'on' : ''}>
+                {confirmId === id ? (
+                  <div className="session-confirm" role="group" aria-label="Confirm delete">
+                    <span>Delete “{c.title}”?</span>
+                    <button
+                      type="button"
+                      className="danger"
+                      onClick={() => {
+                        onDelete(id);
+                        setConfirmId(null);
+                      }}
+                    >
+                      Delete
+                    </button>
+                    <button type="button" onClick={() => setConfirmId(null)}>
+                      Keep
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="session-item"
+                      aria-current={on ? 'true' : undefined}
+                      onClick={() => {
+                        onSelect(id);
+                        setOpen(false);
+                      }}
+                    >
+                      {run?.chatId === id ? <Loader2 className="size-4 animate-spin" aria-label="Working" /> : <MessageSquare className="size-4" aria-hidden="true" />}
+                      <span>
+                        <b>{c.title}</b>
+                        <small>{timeAgo(c.updatedAt)}</small>
+                      </span>
+                      {on && <Check className="size-4 shrink-0" aria-hidden="true" />}
+                    </button>
+                    <button type="button" className="session-del" aria-label={`Delete chat ${c.title}`} onClick={() => setConfirmId(id)}>
+                      <Trash2 className="size-4" />
+                    </button>
+                  </>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        <p className="session-note">Chats are saved in this browser for your account.</p>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function Message({ m, busy, onOpen, onTool, onResend }) {
+  if (m.role === 'user') return <UserMessage m={m} busy={busy} onOpen={onOpen} onResend={onResend} />;
+
+  if (m.role === 'result') return <ResultBubble m={m} onOpen={onOpen} onTool={onTool} busy={busy} />;
 
   return (
     <div className="msg bot">
       <span className="avatar" aria-hidden="true">✦</span>
       <div className="bubble">
+        <span className="sr-only">Assistant: </span>
         <p>{m.text}</p>
       </div>
     </div>
   );
 }
 
+/**
+ * The user's message. If its turn failed or was stopped, it shows why, with Retry and Edit
+ * (edit happens in place: Enter or "Send" resends, Escape or "Cancel" keeps the original).
+ */
+function UserMessage({ m, busy, onOpen, onResend }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(m.text);
+  const editRef = useRef(null);
+  const issueId = `issue-${m.id}`;
+  const unfinished = m.status === 'failed' || m.status === 'stopped';
+  const canSend = !busy && (draft.trim() || m.images?.length);
+
+  useEffect(() => {
+    if (!editing) return;
+    const t = editRef.current;
+    t?.focus();
+    t?.setSelectionRange(t.value.length, t.value.length);
+  }, [editing]);
+
+  function submitEdit(e) {
+    e?.preventDefault();
+    if (!canSend) return;
+    setEditing(false);
+    onResend(draft.trim());
+  }
+
+  return (
+    <div className={`msg user ${unfinished ? 'unfinished' : ''}`}>
+      <div className="msg-col">
+        <div className={`bubble ${editing ? 'editing' : ''}`} aria-describedby={unfinished ? issueId : undefined}>
+          <span className="sr-only">You: </span>
+          {m.images?.length > 0 && (
+            <div className="bubble-photos">
+              {m.images.map((src, i) => (
+                <button key={i} type="button" className="in-thumb big" onClick={() => onOpen(m.images, i)} aria-label={`Open your photo ${i + 1} full screen`}>
+                  <img src={src} alt={`Your photo ${i + 1}`} />
+                </button>
+              ))}
+            </div>
+          )}
+          {editing ? (
+            <form className="edit-form" onSubmit={submitEdit}>
+              <label className="sr-only" htmlFor={`edit-${m.id}`}>
+                Edit your message
+              </label>
+              <textarea
+                id={`edit-${m.id}`}
+                ref={editRef}
+                rows={3}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setEditing(false);
+                  } else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) submitEdit(e);
+                }}
+              />
+              <div className="edit-actions">
+                <button type="button" onClick={() => setEditing(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="primary" disabled={!canSend}>
+                  Send
+                </button>
+              </div>
+            </form>
+          ) : (
+            m.text && <p>{m.text}</p>
+          )}
+        </div>
+
+        {unfinished && !editing && (
+          <div className={`msg-issue ${m.status}`} id={issueId} role={m.status === 'failed' ? 'alert' : undefined}>
+            {m.status === 'failed' ? <TriangleAlert className="size-4 shrink-0" aria-hidden="true" /> : <CircleStop className="size-4 shrink-0" aria-hidden="true" />}
+            <span>{m.status === 'failed' ? `Not completed. ${m.error ?? 'Something went wrong.'}` : 'Stopped before it finished.'}</span>
+            <span className="msg-issue-actions">
+              <button type="button" onClick={() => onResend()} disabled={busy}>
+                <RotateCcw className="size-3.5" aria-hidden="true" /> Retry
+              </button>
+              {!m.tool && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft(m.text);
+                    setEditing(true);
+                  }}
+                  disabled={busy}
+                >
+                  <Pencil className="size-3.5" aria-hidden="true" /> Edit
+                </button>
+              )}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
