@@ -1,0 +1,608 @@
+/* Workspace screen (form workflows). All classes start with ws- so this file
+   does not depend on, or fight with, the older ui.css / styles.css rules.
+   Colours and fonts come from the tokens in studio.css. */
+
+.ws {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  padding-bottom: 6rem; /* room for the fixed action bar */
+}
+
+/* ---------- header ---------- */
+.ws-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem 2rem;
+  flex-wrap: wrap;
+}
+.ws-title h2 {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.2vw, 2rem);
+  font-weight: 800;
+  line-height: 1.1;
+}
+.ws-title p {
+  margin: 0.35rem 0 0;
+  max-width: 70ch;
+  color: var(--ink-2);
+}
+.ws-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.ws-steps li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.85rem 0.3rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: border-color 0.2s, color 0.2s;
+}
+.ws-steps li i {
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+  font-style: normal;
+  font-size: 0.75rem;
+  transition: background 0.2s, color 0.2s;
+}
+.ws-steps li small {
+  font-weight: 500;
+  opacity: 0.7;
+}
+.ws-steps li.done {
+  color: var(--ink);
+}
+.ws-steps li.done i {
+  background: var(--ink);
+  color: #fff;
+}
+.ws-steps li.now {
+  border-color: var(--marker);
+  color: var(--marker-ink);
+}
+.ws-steps li.now i {
+  background: var(--marker);
+  color: #fff;
+}
+
+/* ---------- two panes ---------- */
+.ws-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(1rem, 1.6vw, 1.75rem);
+  align-items: start;
+}
+.ws-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: clamp(1rem, 1.4vw, 1.5rem);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: 0 1px 0 #fff inset, 0 12px 28px -22px rgba(14, 26, 43, 0.45);
+}
+
+/* ---------- inputs ---------- */
+.ws-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.ws-sec + .ws-sec {
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+.ws-sec-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.ws-sec-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.ws-n {
+  flex: none;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.ws-ok {
+  margin-left: auto;
+  color: var(--marker-ink);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.ws-opt {
+  margin-left: auto;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-2);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.ws-inputs .tile-grid {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+.ws-inputs .tile-grid .drop {
+  max-height: 340px;
+}
+
+/* Settings: collapsed by default, summary shows current values */
+.ws-adv {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: #fff;
+}
+.ws-adv summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+  font-weight: 700;
+}
+.ws-adv summary::-webkit-details-marker {
+  display: none;
+}
+.ws-adv summary small {
+  margin-left: auto;
+  color: var(--ink-2);
+  font-weight: 500;
+  text-align: right;
+}
+.ws-adv summary::after {
+  content: '▾';
+  color: var(--ink-2);
+  transition: transform 0.2s;
+}
+.ws-adv[open] summary::after {
+  transform: rotate(180deg);
+}
+.ws-adv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.9rem;
+  padding: 0 1rem 1rem;
+}
+
+/* ---------- result ---------- */
+.ws-result-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.ws-result-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.ws-canvas {
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.ws-recent h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+.ws-strip {
+  display: flex;
+  gap: 0.6rem;
+  overflow-x: auto;
+  padding-bottom: 0.3rem;
+}
+.ws-strip button {
+  all: unset;
+  flex: 0 0 88px;
+  display: grid;
+  gap: 0.25rem;
+  cursor: pointer;
+  color: var(--ink-2);
+  font-size: 0.72rem;
+  text-align: center;
+}
+.ws-strip img,
+.ws-strip-empty {
+  width: 88px;
+  height: 112px;
+  object-fit: cover;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: #dfe4e9;
+  transition: transform 0.15s;
+}
+.ws-strip button:hover img {
+  transform: translateY(-2px);
+}
+.ws-strip button:focus-visible {
+  outline: 3px solid var(--marker);
+  outline-offset: 2px;
+}
+
+/* ---------- action bar (fixed to the bottom of the content area) ---------- */
+.ws-bar {
+  position: fixed;
+  left: 232px; /* sidebar width */
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem clamp(1rem, 2.5vw, 3rem);
+  background: rgba(247, 249, 250, 0.94);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--line);
+}
+.ws-bar-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.ws-bar-info b {
+  font-size: 0.95rem;
+}
+.ws-need {
+  color: #b42318;
+  font-size: 0.85rem;
+}
+.ws-readytext {
+  color: var(--marker-ink);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.ws-bar-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+.ws-btn {
+  border: 0;
+  border-radius: 12px;
+  padding: 0.8rem 1.6rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.15s, box-shadow 0.15s;
+}
+.ws-btn.primary {
+  min-width: 12rem;
+  background: var(--marker);
+  color: #fff;
+  box-shadow: 0 8px 18px -8px rgba(31, 79, 255, 0.6);
+}
+.ws-btn.primary:hover:not(:disabled) {
+  background: var(--marker-ink);
+}
+.ws-btn.primary:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+  cursor: default;
+}
+.ws-btn.ghost {
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+.ws-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* ---------- breakpoints ---------- */
+@media (min-width: 1100px) {
+  .ws-canvas {
+    min-height: 360px;
+  }
+}
+@media (min-width: 1700px) {
+  .ws-inputs .tile-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+}
+@media (max-width: 900px) {
+  .ws-bar {
+    left: 0;
+  }
+  .ws-btn.primary {
+    min-width: 0;
+  }
+}
+@media (max-width: 560px) {
+  .ws-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ws-bar-actions .ws-btn {
+    flex: 1;
+  }
+  .ws-inputs .tile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ws-canvas {
+    min-height: 300px;
+  }
+}
+
+/* ================= v2: photos as one even row, clearer empty result ================= */
+
+/* Tiles share the card width equally and line up: Model + Garment (+ third item) */
+.ws-inputs .tile-grid {
+  gap: 2rem;
+}
+.ws-inputs .tile-grid.cols-1 {
+  grid-template-columns: minmax(0, 440px);
+}
+.ws-inputs .tile-grid.cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.ws-inputs .tile-grid.cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.ws-inputs .tile-grid > .slot {
+  position: relative;
+}
+.ws-inputs .tile-grid > .slot + .slot::before {
+  content: '+';
+  position: absolute;
+  left: -1.5rem;
+  top: 50%;
+  width: 1rem;
+  transform: translateY(-50%);
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.ws-inputs .tile-grid .drop {
+  aspect-ratio: 3 / 4;
+  max-height: 440px;
+}
+
+/* Label on one line, hint underneath, so every tile starts at the same height */
+.ws-inputs .slot-label {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+.ws-inputs .slot-label > span {
+  white-space: nowrap;
+}
+.ws-inputs .slot-label small {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ws-inputs .slot-link {
+  align-self: center;
+  font-size: 0.8rem;
+  color: var(--ink-2);
+  text-decoration-color: var(--line);
+}
+
+/* Empty result: shows what will be combined */
+.ws-empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--ink-2);
+}
+.ws-empty b {
+  margin-top: 0.6rem;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--ink);
+}
+.ws-empty p {
+  margin: 0;
+  max-width: 34ch;
+}
+.ws-formula {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.ws-formula img,
+.ws-q {
+  width: 84px;
+  height: 108px;
+  object-fit: cover;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: #fff;
+}
+.ws-q {
+  display: grid;
+  place-items: center;
+  border: 2px dashed #9aa6b4;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #9aa6b4;
+}
+.ws-formula span {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+@media (max-width: 560px) {
+  .ws-inputs .tile-grid.cols-2,
+  .ws-inputs .tile-grid.cols-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+  .ws-inputs .tile-grid > .slot + .slot::before {
+    display: none;
+  }
+  .ws-formula img,
+  .ws-q {
+    width: 64px;
+    height: 82px;
+  }
+}
+
+/* No "+" at the start of a new row of tiles */
+.ws-inputs .tile-grid.cols-3 > .slot:nth-child(3n + 1)::before,
+.ws-inputs .tile-grid.cols-2 > .slot:nth-child(2n + 1)::before {
+  display: none;
+}
+
+/* ================= v3: workflow rail, style options, result below the form ================= */
+.ws-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(1rem, 1.6vw, 1.75rem);
+  align-items: start;
+}
+.ws-layout.has-rail {
+  grid-template-columns: 250px minmax(0, 1fr);
+}
+.ws-main {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 1.6vw, 1.75rem);
+  min-width: 0;
+}
+.ws-result {
+  scroll-margin-top: 84px;
+}
+
+.ws-rail {
+  position: sticky;
+  top: 84px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.9rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+.ws-rail-title {
+  padding: 0 0.4rem 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.ws-mode {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.7rem 0.75rem;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.ws-mode i {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  background: var(--paper);
+  font-size: 0.95rem;
+}
+.ws-mode span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ws-mode b {
+  font-size: 0.92rem;
+}
+.ws-mode small {
+  color: var(--ink-2);
+  font-size: 0.76rem;
+}
+.ws-mode:hover:not(:disabled):not(.on) {
+  background: var(--paper);
+}
+.ws-mode.on {
+  background: var(--ink);
+  color: #fff;
+}
+.ws-mode.on i {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--chalk);
+}
+.ws-mode.on small {
+  color: rgba(255, 255, 255, 0.7);
+}
+.ws-mode:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.ws-mode:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.ws-style-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9rem;
+}
+
+@media (max-width: 980px) {
+  .ws-layout.has-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ws-rail {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0.5rem;
+  }
+  .ws-rail-title {
+    display: none;
+  }
+  .ws-mode {
+    flex: 0 0 auto;
+    width: auto;
+  }
+  .ws-mode small {
+    display: none;
+  }
+}

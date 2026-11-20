@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0e1a2b"/>
+      <stop offset="1" stop-color="#16295a"/>
+    </linearGradient>
+    <linearGradient id="dress" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff7aa8"/>
+      <stop offset="1" stop-color="#1f4fff"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="1000" fill="url(#bg)"/>
+  <circle cx="620" cy="190" r="260" fill="#1f4fff" opacity=".22"/>
+  <circle cx="140" cy="840" r="220" fill="#ff7aa8" opacity=".16"/>
+  <g fill="none" stroke="#e6eaee" stroke-opacity=".18" stroke-width="2">
+    <path d="M0 700H800M0 760H800M0 820H800"/>
+  </g>
+  <!-- mannequin -->
+  <g transform="translate(400 120)">
+    <ellipse cx="0" cy="40" rx="42" ry="52" fill="#e6eaee"/>
+    <rect x="-12" y="86" width="24" height="40" fill="#cfd6dd"/>
+    <path d="M-95 135 Q0 105 95 135 L70 330 Q0 350 -70 330 Z" fill="url(#dress)"/>
+    <path d="M-70 330 Q-180 560 -230 700 Q0 760 230 700 Q180 560 70 330 Q0 350 -70 330Z" fill="url(#dress)" opacity=".92"/>
+    <path d="M-60 340 Q-90 540 -120 720 M0 350 L0 730 M60 340 Q90 540 120 720" stroke="#fff" stroke-opacity=".22" stroke-width="3" fill="none"/>
+    <rect x="-4" y="740" width="8" height="90" fill="#cfd6dd"/>
+    <ellipse cx="0" cy="835" rx="90" ry="14" fill="#cfd6dd"/>
+  </g>
+  <g fill="#ff7aa8">
+    <path d="M140 220l10 26 26 10-26 10-10 26-10-26-26-10 26-10z"/>
+    <path d="M660 520l7 18 18 7-18 7-7 18-7-18-18-7 18-7z" opacity=".8"/>
+  </g>
+</svg>
