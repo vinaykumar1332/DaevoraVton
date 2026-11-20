@@ -1,3 +1,4 @@
+import { notify } from '@/lib/notify.js';
 import { useEffect, useRef, useState } from 'react';
 import { renderImage, cropRect, RATIOS, WIDTHS, FORMATS, DEFAULT_SETTINGS } from '@/lib/imageTools.js';
 
@@ -5,7 +6,7 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const sameAs = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 /** A generated look: live preview, quick tools, the full tools overlay, and download. */
-export default function ResultBubble({ m, toast, onOpen }) {
+export default function ResultBubble({ m, onOpen }) {
   const [s, setS] = useState(DEFAULT_SETTINGS);
   const [preview, setPreview] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -69,7 +70,7 @@ export default function ResultBubble({ m, toast, onOpen }) {
       }
     } catch (e) {
       console.warn('[studio] download failed', e);
-      toast?.current?.show({
+      notify({
         severity: 'warn',
         summary: 'Could not prepare the image',
         detail: 'Try again in a moment. If it keeps failing, right-click the picture and choose Save image.',

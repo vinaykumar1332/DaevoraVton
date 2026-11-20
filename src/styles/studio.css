@@ -54,8 +54,7 @@ body {
 }
 button,
 input,
-textarea,
-.p-component {
+textarea {
   font-family: var(--font-body);
 }
 h1,
@@ -211,11 +210,6 @@ h4 {
   max-width: 62ch;
   color: var(--ink-2);
 }
-.wf-head > .p-tag {
-  background: var(--ink);
-  color: #fff;
-  font-weight: 600;
-}
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -267,48 +261,6 @@ h4 {
 }
 
 /* ---------- PrimeReact controls ---------- */
-.p-button {
-  border-radius: var(--r-sm);
-  font-weight: 600;
-  box-shadow: none;
-}
-.p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-secondary) {
-  background: var(--marker);
-  border-color: var(--marker);
-}
-.p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-secondary):not(:disabled):hover {
-  background: var(--marker-ink);
-  border-color: var(--marker-ink);
-}
-.p-button.p-button-outlined.p-button-secondary {
-  color: var(--ink);
-  border-color: var(--line);
-}
-.gen-row .p-button:not(.p-button-outlined) {
-  min-width: 10.5rem;
-  padding: 0.8rem 1.4rem;
-  font-size: 1rem;
-}
-.p-inputtext,
-.p-dropdown,
-.p-inputtextarea,
-.p-inputnumber-input {
-  border-radius: var(--r-sm);
-  border-color: var(--line);
-  background: #fff;
-}
-.p-inputtext:enabled:focus,
-.p-dropdown:not(.p-disabled).p-focus {
-  border-color: var(--marker);
-  box-shadow: var(--focus-ring);
-}
-.p-panel .p-panel-header {
-  background: transparent;
-  border-color: var(--line);
-}
-.p-toast .p-toast-message {
-  border-radius: var(--r-md);
-}
 
 /* ---------- image slot ---------- */
 .slot {
@@ -2097,14 +2049,6 @@ h4 {
   flex-direction: column;
   gap: 0.35rem;
   min-width: 0;
-}
-.wf-field .p-dropdown,
-.wf-field .p-inputtext,
-.wf-field .p-inputnumber {
-  width: 100%;
-}
-.wf-field .p-inputtextarea {
-  width: 100%;
 }
 .opt-badge {
   margin-left: 0.4rem;

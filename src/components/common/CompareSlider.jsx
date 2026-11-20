@@ -1,3 +1,4 @@
+import { Maximize2, MoveHorizontal } from 'lucide-react';
 import { useRef, useState } from 'react';
 
 /** Before / after slider. Drag, click, or use the arrow keys on the handle. */
@@ -38,12 +39,12 @@ export default function CompareSlider({ before, after, onOpen }) {
             if (e.key === 'ArrowRight') setPos((p) => Math.min(100, p + 5));
           }}
         >
-          <i className="pi pi-arrows-h" />
+          <MoveHorizontal className="size-4" />
         </button>
       </div>
       {onOpen && (
         <button type="button" className="cmp-open" onClick={onOpen} aria-label="Open full screen">
-          <i className="pi pi-expand" />
+          <Maximize2 className="size-4" />
         </button>
       )}
     </div>

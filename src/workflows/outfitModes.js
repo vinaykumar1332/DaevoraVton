@@ -49,7 +49,7 @@ export const OUTFIT_MODES = [
     id: 'product',
     label: 'Product to model',
     short: 'Hanger, mannequin or pack shots',
-    icon: 'pi pi-tag',
+    icon: 'Tag',
     blurb: 'Upload product photos of the garments (top, bottom or dress, shoes, accessory). They are worn by your model, or by a model we create.',
     photos: ['model', 'top', 'topBack', 'bottom', 'bottomBack', 'dress', 'dressBack', 'shoes', 'accessory', 'background'],
     pairs: [
@@ -73,7 +73,7 @@ export const OUTFIT_MODES = [
     id: 'flat',
     label: 'Flat lay to model',
     short: 'Clothes laid flat on a surface',
-    icon: 'pi pi-th-large',
+    icon: 'LayoutGrid',
     blurb: 'Upload photos of clothes laid flat (a full outfit in one photo, or one piece each). They are turned into a worn look with a natural fit and drape.',
     photos: ['model', 'flatA', 'flatABack', 'flatB', 'flatBBack', 'shoes', 'accessory', 'background'],
     pairs: [
@@ -96,7 +96,7 @@ export const OUTFIT_MODES = [
     id: 'indian',
     label: 'Indian traditional wear',
     short: 'Saree, lehenga, kurta, sherwani',
-    icon: 'pi pi-star',
+    icon: 'Star',
     blurb: 'Pick the outfit type and style, then upload the garment. Borders, zari, embroidery and pallu details are kept as photographed.',
     photos: ['model', 'ind', 'indBack', 'indTop', 'dupatta', 'shoes', 'accessory', 'background'],
     pairs: [['ind', 'indBack', 'main garment']],

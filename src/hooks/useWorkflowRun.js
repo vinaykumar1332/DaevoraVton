@@ -1,3 +1,4 @@
+import { notify } from '@/lib/notify.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /** First photo the user supplied, used behind the loader and as the "before" image. */
@@ -13,9 +14,9 @@ export function firstPhoto(wf, values) {
 
 /**
  * Owns the run lifecycle of a form workflow: status, elapsed time, result, error,
- * cancel and history. The caller supplies toast + error helpers.
+ * cancel and history. The caller supplies the error helper.
  */
-export function useWorkflowRun({ toast, notifyError, onSettled }) {
+export function useWorkflowRun({ notifyError, onSettled }) {
   const abortRef = useRef(null);
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState('');
@@ -52,11 +53,11 @@ export function useWorkflowRun({ toast, notifyError, onSettled }) {
         setResult(res);
         setStatus(`Done — ${out.images.length} image(s)`);
         setHistory((h) => [{ id: `${Date.now()}`, time: new Date(), wfId: wf.id, values: snapshot, result: res }, ...h].slice(0, 100));
-        toast.current?.show({ severity: 'success', summary: 'Done', detail: `${out.images.length} image(s) ready`, life: 3000 });
+        notify({ severity: 'success', summary: 'Done', detail: `${out.images.length} image(s) ready`, life: 3000 });
       } catch (e) {
         if (ctrl.signal.aborted || e?.name === 'AbortError') {
           setStatus('Cancelled');
-          toast.current?.show({
+          notify({
             severity: 'info',
             summary: 'Cancelled',
             detail: 'Stopped waiting. A job already submitted may still finish and use credits.',
@@ -73,7 +74,7 @@ export function useWorkflowRun({ toast, notifyError, onSettled }) {
         onSettled?.();
       }
     },
-    [toast, notifyError, onSettled]
+    [notifyError, onSettled]
   );
 
   const cancel = useCallback(() => abortRef.current?.abort(), []);

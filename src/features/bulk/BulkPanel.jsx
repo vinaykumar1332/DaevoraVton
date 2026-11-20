@@ -1,7 +1,8 @@
 import { Fragment, useRef, useState } from 'react';
-import { Dropdown } from 'primereact/dropdown';
-import { Button } from 'primereact/button';
-import { ProgressBar } from 'primereact/progressbar';
+import { Download, Loader2, Square, Table2, Zap } from 'lucide-react';
+import { Button } from '@/components/ui/button.jsx';
+import { Progress } from '@/components/ui/progress.jsx';
+import OptionSelect from '@/components/common/OptionSelect.jsx';
 import WorkflowForm, { MultiImageInput } from '@/features/workspace/WorkflowForm.jsx';
 import { WORKFLOWS, defaultValues, missingFields } from '@/workflows/engines.js';
 import { downloadImage } from '@/api/fashn.js';
@@ -96,7 +97,7 @@ export default function BulkPanel({ onDone, onRunsChanged }) {
       <div className="wf-head">
         <div>
           <h2>
-            <i className="pi pi-table" /> Bulk grid
+            <Table2 className="inline size-5 align-text-bottom" /> Bulk grid
           </h2>
           <p className="muted">
             Every model × every garment becomes one try-on job. Up to {CONCURRENCY} run at once. Each cell can be opened or downloaded.
@@ -108,7 +109,7 @@ export default function BulkPanel({ onDone, onRunsChanged }) {
         <section className="panel wf-inputs">
           <div className="wf-field">
             <div className="wf-label">Engine</div>
-            <Dropdown className="w-full" value={wfId} options={BULK_WFS} disabled={running} onChange={(e) => pickWorkflow(e.value)} />
+            <OptionSelect value={wfId} options={BULK_WFS} disabled={running} onChange={pickWorkflow} aria-label="Engine" />
           </div>
 
           <div className="wf-field">
@@ -130,14 +131,15 @@ export default function BulkPanel({ onDone, onRunsChanged }) {
             {tooMany && <small className="need">Max {MAX_JOBS} jobs per batch. Remove some models or garments.</small>}
             {!tooMany && total > 0 && missing.length > 0 && <small className="need">Required: {missing.join(', ')}</small>}
             <div className="gen-row">
-              {running && <Button label="Cancel" icon="pi pi-stop-circle" severity="danger" outlined onClick={() => abortRef.current?.abort()} />}
-              <Button
-                label={running ? 'Running…' : `Run ${total} job(s)`}
-                icon="pi pi-bolt"
-                loading={running}
-                disabled={running || total === 0 || tooMany || missing.length > 0}
-                onClick={runBulk}
-              />
+              {running && (
+                <Button variant="outline" className="border-destructive text-destructive hover:text-destructive" onClick={() => abortRef.current?.abort()}>
+                  <Square /> Cancel
+                </Button>
+              )}
+              <Button disabled={running || total === 0 || tooMany || missing.length > 0} onClick={runBulk}>
+                {running ? <Loader2 className="animate-spin" /> : <Zap />}
+                {running ? 'Running…' : `Run ${total} job(s)`}
+              </Button>
             </div>
           </div>
         </section>
@@ -150,13 +152,13 @@ export default function BulkPanel({ onDone, onRunsChanged }) {
                   {progress.done} / {progress.total} done
                 </span>
               </div>
-              <ProgressBar value={Math.round((progress.done / progress.total) * 100)} style={{ height: 6 }} />
+              <Progress value={Math.round((progress.done / progress.total) * 100)} className="h-1.5" />
             </>
           )}
 
           {total === 0 ? (
             <div className="placeholder">
-              <i className="pi pi-table" />
+              <Table2 />
               <p>Add models and garments to see the grid.</p>
             </div>
           ) : (
@@ -185,7 +187,9 @@ export default function BulkPanel({ onDone, onRunsChanged }) {
           )}
 
           {doneCells.length > 0 && (
-            <Button label={`Download all (${doneCells.length})`} icon="pi pi-download" outlined className="mt" onClick={downloadAll} />
+            <Button variant="outline" className="mt" onClick={downloadAll}>
+              <Download /> Download all ({doneCells.length})
+            </Button>
           )}
         </section>
       </div>

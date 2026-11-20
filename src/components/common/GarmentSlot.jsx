@@ -1,3 +1,4 @@
+import { ArrowLeftRight } from 'lucide-react';
 import ImageSlot from '@/components/common/ImageSlot.jsx';
 
 /**
@@ -61,7 +62,7 @@ export default function GarmentSlot({ label, hint, front, back, onFront, onBack,
             onBack(front);
           }}
         >
-          <i className="pi pi-arrow-right-arrow-left" aria-hidden="true" /> Swap front and back
+          <ArrowLeftRight className="size-3.5" aria-hidden="true" /> Swap front and back
         </button>
       )}
     </div>

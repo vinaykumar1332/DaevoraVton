@@ -1,3 +1,4 @@
+import { notify } from '@/lib/notify.js';
 import { useState } from 'react';
 import Lightbox from '@/components/common/Lightbox.jsx';
 import CompareSlider from '@/components/common/CompareSlider.jsx';
@@ -25,7 +26,7 @@ function Tile({ url, i, onOpen, onDownload, onCopy }) {
   );
 }
 
-export default function ResultsGallery({ result, toast, before }) {
+export default function ResultsGallery({ result, before }) {
   const [open, setOpen] = useState(null);
   const [view, setView] = useState('results'); // 'results' | 'compare'
   if (!result) return null;
@@ -36,16 +37,16 @@ export default function ResultsGallery({ result, toast, before }) {
   async function copy(url) {
     try {
       await navigator.clipboard.writeText(url);
-      toast?.current?.show({ severity: 'success', summary: 'Link copied', life: 1500 });
+      notify({ severity: 'success', summary: 'Link copied', life: 1500 });
     } catch {
-      toast?.current?.show({ severity: 'warn', summary: 'Could not copy', detail: url, life: 4000 });
+      notify({ severity: 'warn', summary: 'Could not copy', detail: url, life: 4000 });
     }
   }
 
   async function download(url, i) {
     const ok = await downloadImage(url, `tryon-${base}-${i + 1}.${extOf(url)}`);
     if (!ok) {
-      toast?.current?.show({
+      notify({
         severity: 'info',
         summary: 'Opened in a new tab',
         detail: 'Direct download was blocked. Right-click the image and choose Save image.',

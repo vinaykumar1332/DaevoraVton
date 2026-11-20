@@ -1,6 +1,8 @@
 import './workspace.css';
 import { useEffect, useRef } from 'react';
-import { Message } from 'primereact/message';
+import { WfIcon } from '@/lib/icons.jsx';
+import { TriangleAlert } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert.jsx';
 import { FieldInput, TileGrid } from '@/features/workspace/WorkflowForm.jsx';
 import ResultsGallery from '@/features/gallery/ResultsGallery.jsx';
 import FittingLoader from '@/components/common/FittingLoader.jsx';
@@ -61,7 +63,6 @@ export default function Workspace({
   onRestore,
   onModeChange,
   onError,
-  toast,
 }) {
   const visible = wf.fields.filter((f) => !f.hidden && (!f.showIf || f.showIf(values)));
   const photos = visible.filter(isPhoto);
@@ -113,7 +114,7 @@ export default function Workspace({
                 disabled={running}
                 onClick={() => (onModeChange ? onModeChange(m.id) : setField('mode', m.id))}
               >
-                <i className={m.icon} aria-hidden="true" />
+                <WfIcon name={m.icon} />
                 <span>
                   <b>{m.label}</b>
                   <small>{m.short}</small>
@@ -190,9 +191,13 @@ export default function Workspace({
                 {running ? (
                   <FittingLoader image={runPhoto} status={status} elapsed={elapsed} onCancel={onCancel} />
                 ) : lastError ? (
-                  <Message severity="error" className="w-full" text={`${friendlyError(lastError).title}. ${friendlyError(lastError).detail}`} />
+                  <Alert variant="destructive" className="w-full">
+                    <TriangleAlert />
+                    <AlertTitle>{friendlyError(lastError).title}</AlertTitle>
+                    <AlertDescription>{friendlyError(lastError).detail}</AlertDescription>
+                  </Alert>
                 ) : (
-                  <ResultsGallery result={result} toast={toast} before={beforePhoto} />
+                  <ResultsGallery result={result} before={beforePhoto} />
                 )}
               </div>
             )}

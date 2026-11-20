@@ -1,3 +1,4 @@
+import { notify } from '@/lib/notify.js';
 import { useEffect, useRef, useState } from 'react';
 import Lightbox from '@/components/common/Lightbox.jsx';
 import { fileToJpegDataURI, downloadImage } from '@/api/fashn.js';
@@ -24,7 +25,7 @@ function suggestFor(input, pending, lastResult, onlyWelcome) {
   return [...new Set([...typed, ...base])].slice(0, 5);
 }
 
-export default function ChatStudio({ toast }) {
+export default function ChatStudio() {
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
@@ -79,7 +80,7 @@ export default function ChatStudio({ toast }) {
     const room = MAX_PHOTOS - pending.length;
     if (!files.length) return;
     if (room <= 0) {
-      toast?.current?.show({ severity: 'warn', summary: 'Photos', detail: `You can attach up to ${MAX_PHOTOS} photos per message.`, life: 4000 });
+      notify({ severity: 'warn', summary: 'Photos', detail: `You can attach up to ${MAX_PHOTOS} photos per message.`, life: 4000 });
       return;
     }
     try {
@@ -91,7 +92,7 @@ export default function ChatStudio({ toast }) {
       );
       setPending((p) => [...p, ...made]);
     } catch (e) {
-      toast?.current?.show({ severity: 'warn', summary: 'Photo', detail: e.message, life: 4000 });
+      notify({ severity: 'warn', summary: 'Photo', detail: e.message, life: 4000 });
     }
   }
 
@@ -104,7 +105,7 @@ export default function ChatStudio({ toast }) {
       setInput(better);
     } catch (e) {
       const f = friendlyError(e);
-      toast?.current?.show({ severity: 'warn', summary: f.title, detail: f.detail, life: 4000 });
+      notify({ severity: 'warn', summary: f.title, detail: f.detail, life: 4000 });
     } finally {
       setEnhancing(false);
     }
@@ -224,7 +225,7 @@ export default function ChatStudio({ toast }) {
         }}
       >
         {messages.map((m) => (
-          <Message key={m.id} m={m} toast={toast} onOpen={(images, index) => setLightbox({ images, index })} />
+          <Message key={m.id} m={m} onOpen={(images, index) => setLightbox({ images, index })} />
         ))}
         {busy && creating && (
           <div className="msg bot loader-msg">
@@ -370,7 +371,7 @@ export default function ChatStudio({ toast }) {
   );
 }
 
-function Message({ m, toast, onOpen }) {
+function Message({ m, onOpen }) {
   if (m.role === 'user') {
     return (
       <div className="msg user">
@@ -390,7 +391,7 @@ function Message({ m, toast, onOpen }) {
     );
   }
 
-  if (m.role === 'result') return <ResultBubble m={m} toast={toast} onOpen={onOpen} />;
+  if (m.role === 'result') return <ResultBubble m={m} onOpen={onOpen} />;
 
   return (
     <div className="msg bot">

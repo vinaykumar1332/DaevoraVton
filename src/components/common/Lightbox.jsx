@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -57,7 +58,7 @@ export default function Lightbox({ images, index, onIndex, onClose, onDownload }
             </button>
           )}
           <button ref={closeRef} type="button" className="lb-btn lb-close" onClick={onClose} aria-label="Close preview">
-            <i className="pi pi-times" />
+            <X className="size-5" />
           </button>
         </div>
       </div>
@@ -65,7 +66,7 @@ export default function Lightbox({ images, index, onIndex, onClose, onDownload }
       <div className={`lb-stage ${zoom ? 'zoomed' : ''}`} onClick={(e) => e.stopPropagation()}>
         {count > 1 && (
           <button type="button" className="lb-nav prev" aria-label="Previous image" onClick={() => go(-1)}>
-            <i className="pi pi-chevron-left" />
+            <ChevronLeft className="size-6" />
           </button>
         )}
         {!loaded && <div className="lb-skel shimmer" />}
@@ -79,7 +80,7 @@ export default function Lightbox({ images, index, onIndex, onClose, onDownload }
         />
         {count > 1 && (
           <button type="button" className="lb-nav next" aria-label="Next image" onClick={() => go(1)}>
-            <i className="pi pi-chevron-right" />
+            <ChevronRight className="size-6" />
           </button>
         )}
       </div>

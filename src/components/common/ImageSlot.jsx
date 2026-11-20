@@ -1,3 +1,4 @@
+import { TriangleAlert } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import Lightbox from '@/components/common/Lightbox.jsx';
 import { ACCEPT, checkUrl, pickImageFile, prepareFile, urlValue } from '@/lib/imageIntake.js';
@@ -165,7 +166,7 @@ export default function ImageSlot({
           <>
             {broken ? (
               <div className="drop-broken" role="alert">
-                <i className="pi pi-exclamation-triangle" aria-hidden="true" />
+                <TriangleAlert className="size-5" aria-hidden="true" />
                 <b>Could not load this image</b>
                 <span>The link may be private, expired or not an image.</span>
               </div>

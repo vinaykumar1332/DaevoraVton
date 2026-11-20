@@ -26,6 +26,7 @@ export function friendlyError(e) {
   let detail;
   if (ERRORS[code]) [title, detail] = ERRORS[code];
   else if (e?.status === 401) [title, detail] = ['Setup needed', 'The AI service is not connected yet. Ask the admin to check the settings.'];
+  else if (e?.status === 413) [title, detail] = ['Photos too large', 'The photos are too big to send together. Remove a photo or use smaller photos, then try again.'];
   else if (code.startsWith('OpenAI') || code.includes('openai')) [title, detail] = ['AI writer unavailable', 'Try again in a moment.'];
   else [title, detail] = ['Something went wrong', 'Please try again. If it keeps happening, check your photos and settings.'];
 

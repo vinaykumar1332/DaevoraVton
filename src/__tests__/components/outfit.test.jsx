@@ -1,6 +1,5 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { PrimeReactProvider } from 'primereact/api';
 import Workspace from '@/features/workspace/Workspace.jsx';
 import { findWorkflow, defaultValues, missingFields } from '@/workflows/engines.js';
 import { modeOf, outfitProblems } from '@/workflows/outfitModes.js';
@@ -17,9 +16,7 @@ function setup(over = {}) {
     onError: vi.fn(), toast: { current: null }, ...over,
   };
   render(
-    <PrimeReactProvider>
       <Workspace {...props} />
-    </PrimeReactProvider>
   );
   return { setValues, props };
 }

@@ -1,7 +1,10 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useRoute } from '@/lib/router.js';
 import { OUTFIT_MODES } from '@/workflows/outfitModes.js';
-import { Toast } from 'primereact/toast';
+import { LogOut, Table2, User } from 'lucide-react';
+import { WfIcon } from '@/lib/icons.jsx';
+import { Toaster } from '@/components/ui/sonner.jsx';
+import { notify } from '@/lib/notify.js';
 import { useAuth } from '@/auth/context/AuthContext.jsx';
 import { useCredits } from '@/hooks/useCredits.js';
 import { useWorkflowRun, firstPhoto } from '@/hooks/useWorkflowRun.js';
@@ -24,19 +27,18 @@ const BulkPanel = lazy(() => import('@/features/bulk/BulkPanel.jsx'));
   Run state lives in useWorkflowRun so it survives switching screens.
 */
 export default function App() {
-  const toast = useRef(null);
   const { user, logout } = useAuth();
   const { active, params, navigate } = useRoute(ROUTE_IDS);
   const [valuesById, setValuesById] = useState(() => Object.fromEntries(WORKFLOWS.map((w) => [w.id, defaultValues(w)])));
 
   const notifyError = useCallback((err) => {
     const f = friendlyError(err);
-    toast.current?.show({ severity: 'error', summary: f.title, detail: f.detail, life: 7000 });
+    notify({ severity: 'error', summary: f.title, detail: f.detail, life: 7000 });
   }, []);
-  const slotError = (msg) => toast.current?.show({ severity: 'warn', summary: 'Photo', detail: msg, life: 4000 });
+  const slotError = (msg) => notify({ severity: 'warn', summary: 'Photo', detail: msg, life: 4000 });
 
   const { credits, loading: creditsLoading, refresh: refreshCredits } = useCredits(notifyError);
-  const run = useWorkflowRun({ toast, notifyError, onSettled: refreshCredits });
+  const run = useWorkflowRun({ notifyError, onSettled: refreshCredits });
 
   const wf = findWorkflow(active);
   const values = wf ? (valuesById[wf.id] ?? defaultValues(wf)) : {};
@@ -85,7 +87,7 @@ export default function App() {
 
   return (
     <div className="shell">
-      <Toast ref={toast} position="top-right" />
+      <Toaster position="top-right" richColors closeButton />
 
       <header className="topbar">
         <div className="brand">
@@ -114,7 +116,7 @@ export default function App() {
             <b>{creditsLoading ? '…' : (credits?.total ?? 'n/a')}</b> credits
           </button>
           <button type="button" className="credits user-chip" onClick={logout} title="Sign out">
-            <i className="pi pi-user" /> {user?.name} <i className="pi pi-sign-out" />
+            <User className="size-4" /> {user?.name} <LogOut className="size-4" />
           </button>
         </div>
       </header>
@@ -126,7 +128,7 @@ export default function App() {
               <div className="nav-title">{g}</div>
               {WORKFLOWS.filter((w) => w.group === g && NAV_IDS.includes(w.id)).map((w) => (
                 <button key={w.id} type="button" className={`nav-item ${active === w.id ? 'on' : ''}`} onClick={() => navigate(w.id)} title={w.short}>
-                  <i className={w.icon} />
+                  <WfIcon name={w.icon} />
                   <span>{w.label}</span>
                 </button>
               ))}
@@ -135,7 +137,7 @@ export default function App() {
           <div className="nav-group">
             <div className="nav-title">Batch</div>
             <button type="button" className={`nav-item ${active === 'bulk' ? 'on' : ''}`} onClick={() => navigate('bulk')}>
-              <i className="pi pi-table" />
+              <Table2 />
               <span>Bulk grid</span>
             </button>
           </div>
@@ -145,7 +147,7 @@ export default function App() {
           <Suspense fallback={<PageLoader />}>
             <div className="page-enter" key={active}>
               {active === 'ai-studio' ? (
-                <ChatStudio toast={toast} />
+                <ChatStudio />
               ) : active === 'bulk' ? (
                 <BulkPanel
                   onDone={(e) => run.addHistory({ id: `${Date.now()}-${Math.random()}`, time: new Date(), ...e })}
@@ -171,7 +173,6 @@ export default function App() {
                   onRestore={restore}
                   onModeChange={(id) => navigate('outfit-studio', { workflow: id })}
                   onError={slotError}
-                  toast={toast}
                 />
               ) : null}
             </div>

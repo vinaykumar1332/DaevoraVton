@@ -1,8 +1,9 @@
-import { Dropdown } from 'primereact/dropdown';
-import { InputText } from 'primereact/inputtext';
-import { InputTextarea } from 'primereact/inputtextarea';
-import { InputNumber } from 'primereact/inputnumber';
-import { Panel } from 'primereact/panel';
+import { Check, ChevronDown } from 'lucide-react';
+import { Input } from '@/components/ui/input.jsx';
+import { Textarea } from '@/components/ui/textarea.jsx';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible.jsx';
+import OptionSelect from '@/components/common/OptionSelect.jsx';
+import NumberField from '@/components/common/NumberField.jsx';
 import ImageSlot from '@/components/common/ImageSlot.jsx';
 import GarmentSlot from '@/components/common/GarmentSlot.jsx';
 import { prepareFile } from '@/lib/imageIntake.js';
@@ -73,7 +74,7 @@ export default function WorkflowForm({ wf, values, setValues, disabled, exclude 
               <h4>{g.title}</h4>
               {done && (
                 <span className="step-tick">
-                  <i className="pi pi-check" /> Added
+                  <Check className="size-3.5" /> Added
                 </span>
               )}
             </header>
@@ -92,13 +93,19 @@ export default function WorkflowForm({ wf, values, setValues, disabled, exclude 
       })}
 
       {wf.presets && (
-        <Panel header="Prompting tips" toggleable collapsed className="tips">
-          <ul>
-            {PROMPT_TIPS.map((t) => (
-              <li key={t}>{t}</li>
-            ))}
-          </ul>
-        </Panel>
+        <Collapsible className="tips rounded-lg border bg-card">
+          <CollapsibleTrigger className="group flex w-full items-center justify-between px-4 py-3 text-sm font-semibold">
+            Prompting tips
+            <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <ul className="list-disc space-y-1 px-8 pb-4 text-sm text-muted-foreground">
+              {PROMPT_TIPS.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          </CollapsibleContent>
+        </Collapsible>
       )}
     </div>
   );
@@ -121,25 +128,15 @@ function StepFields({ wf, fields, values, setValues, disabled, onError }) {
       {wf.presets && fields.some((f) => f.key === 'prompt') && (
         <div className="wf-field">
           <div className="wf-label">Start from a preset</div>
-          <Dropdown
-            className="w-full"
-            options={PRESET_GROUPS}
-            optionGroupLabel="label"
-            optionGroupChildren="items"
-            optionLabel="label"
+          <OptionSelect
+            groups={PRESET_GROUPS.map((g) => ({ label: g.label, items: g.items.map((p) => ({ label: `${p.label} (${p.needs})`, value: p.label })) }))}
             value={null}
             placeholder="Choose a preset (fills the prompt)…"
             disabled={disabled}
-            onChange={(e) => e.value && applyPreset(e.value)}
-            itemTemplate={(p) => (
-              <div className="preset-item">
-                <span>{p.label}</span>
-                <small className="muted">
-                  {p.needs}
-                  {p.settings ? ` · sets ${Object.values(p.settings).join(', ')}` : ''}
-                </small>
-              </div>
-            )}
+            onChange={(label) => {
+              const preset = PRESET_GROUPS.flatMap((g) => g.items).find((p) => p.label === label);
+              if (preset) applyPreset(preset);
+            }}
           />
         </div>
       )}
@@ -282,10 +279,9 @@ export function FieldInput({ f, value, onChange, disabled }) {
         <div className="wf-field">
           {title}
           {f.multiline ? (
-            <InputTextarea
-              className="w-full"
+            <Textarea
+              className="min-h-24 w-full"
               rows={4}
-              autoResize
               value={value}
               disabled={disabled}
               placeholder={f.placeholder}
@@ -293,7 +289,7 @@ export function FieldInput({ f, value, onChange, disabled }) {
               onChange={(e) => onChange(e.target.value)}
             />
           ) : (
-            <InputText
+            <Input
               className="w-full"
               value={value}
               disabled={disabled}
@@ -309,7 +305,7 @@ export function FieldInput({ f, value, onChange, disabled }) {
       return (
         <div className="wf-field">
           {title}
-          <Dropdown className="w-full" value={value} options={f.options} disabled={disabled} onChange={(e) => onChange(e.value)} />
+          <OptionSelect value={value} options={f.options} disabled={disabled} onChange={onChange} aria-label={f.label} />
         </div>
       );
 
@@ -317,16 +313,7 @@ export function FieldInput({ f, value, onChange, disabled }) {
       return (
         <div className="wf-field">
           {title}
-          <InputNumber
-            className="w-full"
-            value={value}
-            min={f.min}
-            max={f.max}
-            useGrouping={false}
-            showButtons
-            disabled={disabled}
-            onValueChange={(e) => onChange(e.value ?? f.default)}
-          />
+          <NumberField value={value} min={f.min} max={f.max} fallback={f.default} disabled={disabled} onChange={onChange} />
           {f.hint && <small className="muted">{f.hint}</small>}
         </div>
       );

@@ -255,7 +255,7 @@ function loadImageFromFile(file) {
  * Downscale to `maxSide` on the longest side and encode as JPEG data URI
  * on a white background (flattens transparent PNGs).
  */
-export async function fileToJpegDataURI(file, { maxSide = 2048, quality = 0.92 } = {}) {
+export async function fileToJpegDataURI(file, { maxSide = 1600, quality = 0.85 } = {}) {
   const img = await loadImageFromFile(file);
   const w0 = img.naturalWidth;
   const h0 = img.naturalHeight;

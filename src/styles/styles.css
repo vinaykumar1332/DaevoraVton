@@ -98,24 +98,8 @@ body {
   }
 }
 
-.p-card .p-card-body {
-  padding: 1rem 1.1rem;
-}
-.p-card .p-card-title {
-  font-size: 1rem;
-}
-.p-card .p-card-subtitle {
-  font-size: 0.8rem;
-}
-.p-card .p-card-content {
-  padding: 0;
-}
-
 .mode-switch {
   display: flex;
-}
-.mode-switch .p-button {
-  flex: 1;
 }
 .mode-opt i {
   margin-right: 0.35rem;
@@ -217,28 +201,12 @@ body {
   border-radius: 999px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 }
-.slot-actions .p-button {
-  width: 2rem;
-  height: 2rem;
-}
 .slot-info {
   color: var(--muted);
   font-size: 0.72rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.slot-url .p-inputtext {
-  font-size: 0.78rem;
-  padding: 0.4rem 0.5rem;
-  min-width: 0;
-}
-.slot-url .p-button {
-  width: 2.2rem;
-  padding: 0;
-}
-.image-slot.compact .slot-url .p-button {
-  width: 2rem;
 }
 
 /* ---------- forms ---------- */
@@ -260,17 +228,6 @@ body {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--muted);
-}
-.field .p-dropdown,
-.field .p-inputtext {
-  width: 100%;
-}
-.field .p-selectbutton {
-  display: flex;
-}
-.field .p-selectbutton .p-button {
-  flex: 1;
-  padding: 0.55rem 0;
 }
 
 .generate-bar {
@@ -331,10 +288,6 @@ body {
   overflow: hidden;
   background: #fff;
 }
-.gallery-item .p-image {
-  display: block;
-  background: #f0f1f6;
-}
 .gallery-img {
   width: 100%;
   max-height: 520px;
@@ -354,10 +307,6 @@ body {
 }
 
 /* ---------- history ---------- */
-.history-card .p-card-body {
-  max-height: 420px;
-  overflow: auto;
-}
 .history {
   list-style: none;
   margin: 0;
@@ -437,13 +386,6 @@ body {
 .over-limit {
   color: #e24c4c;
   font-weight: 600;
-}
-.tips .p-panel-header {
-  padding: 0.6rem 0.9rem;
-  font-size: 0.85rem;
-}
-.tips .p-panel-content {
-  padding: 0.5rem 0.9rem;
 }
 .tips ul {
   margin: 0;
