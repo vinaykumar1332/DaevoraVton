@@ -59,6 +59,7 @@ export default function Workspace({
   onGenerate,
   onCancel,
   onRestore,
+  onModeChange,
   onError,
   toast,
 }) {
@@ -110,7 +111,7 @@ export default function Workspace({
                 className={`ws-mode ${mode?.id === m.id ? 'on' : ''}`}
                 aria-pressed={mode?.id === m.id}
                 disabled={running}
-                onClick={() => setField('mode', m.id)}
+                onClick={() => (onModeChange ? onModeChange(m.id) : setField('mode', m.id))}
               >
                 <i className={m.icon} aria-hidden="true" />
                 <span>

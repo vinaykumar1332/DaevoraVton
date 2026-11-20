@@ -1,4 +1,6 @@
-import { lazy, Suspense, useCallback, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useRoute } from '@/lib/router.js';
+import { OUTFIT_MODES } from '@/workflows/outfitModes.js';
 import { Toast } from 'primereact/toast';
 import { useAuth } from '@/auth/context/AuthContext.jsx';
 import { useCredits } from '@/hooks/useCredits.js';
@@ -6,6 +8,9 @@ import { useWorkflowRun, firstPhoto } from '@/hooks/useWorkflowRun.js';
 import { WORKFLOWS, NAV_GROUPS, NAV_IDS, findWorkflow, defaultValues, missingFields } from '@/workflows/engines.js';
 import { friendlyError } from '@/lib/messages.js';
 import PageLoader from '@/components/common/PageLoader.jsx';
+
+// Every page has its own URL path: /<id>. 'ai-studio' and the form workflows come from NAV_IDS.
+const ROUTE_IDS = [...NAV_IDS, 'bulk'];
 
 const Workspace = lazy(() => import('@/features/workspace/Workspace.jsx'));
 const ChatStudio = lazy(() => import('@/features/chat/ChatStudio.jsx'));
@@ -21,7 +26,7 @@ const BulkPanel = lazy(() => import('@/features/bulk/BulkPanel.jsx'));
 export default function App() {
   const toast = useRef(null);
   const { user, logout } = useAuth();
-  const [active, setActive] = useState('ai-studio');
+  const { active, params, navigate } = useRoute(ROUTE_IDS);
   const [valuesById, setValuesById] = useState(() => Object.fromEntries(WORKFLOWS.map((w) => [w.id, defaultValues(w)])));
 
   const notifyError = useCallback((err) => {
@@ -44,9 +49,23 @@ export default function App() {
     [active]
   );
 
+  // The URL decides the Outfit Studio workflow (?workflow=flat). With no valid param, the URL adopts the stored one.
+  const urlMode = OUTFIT_MODES.some((m) => m.id === params.workflow) ? params.workflow : null;
+  useEffect(() => {
+    if (active !== 'outfit-studio') return;
+    if (urlMode) setValues((cur) => (cur.mode === urlMode ? cur : { ...cur, mode: urlMode }));
+    else navigate('outfit-studio', { workflow: values.mode || OUTFIT_MODES[0].id }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, urlMode]);
+
+  useEffect(() => {
+    const title = active === 'bulk' ? 'Bulk grid' : (wf?.label ?? 'AI Studio');
+    document.title = `${title} · Fitting Room`;
+  }, [active, wf]);
+
   function restore(entry) {
     if (run.running) return;
-    setActive(entry.wfId);
+    navigate(entry.wfId, entry.wfId === 'outfit-studio' ? { workflow: entry.values?.mode } : {});
     setValuesById((all) => ({ ...all, [entry.wfId]: entry.values }));
     run.setResult(entry.result);
     run.setLastError(null);
@@ -106,7 +125,7 @@ export default function App() {
             <div className="nav-group" key={g}>
               <div className="nav-title">{g}</div>
               {WORKFLOWS.filter((w) => w.group === g && NAV_IDS.includes(w.id)).map((w) => (
-                <button key={w.id} type="button" className={`nav-item ${active === w.id ? 'on' : ''}`} onClick={() => setActive(w.id)} title={w.short}>
+                <button key={w.id} type="button" className={`nav-item ${active === w.id ? 'on' : ''}`} onClick={() => navigate(w.id)} title={w.short}>
                   <i className={w.icon} />
                   <span>{w.label}</span>
                 </button>
@@ -115,7 +134,7 @@ export default function App() {
           ))}
           <div className="nav-group">
             <div className="nav-title">Batch</div>
-            <button type="button" className={`nav-item ${active === 'bulk' ? 'on' : ''}`} onClick={() => setActive('bulk')}>
+            <button type="button" className={`nav-item ${active === 'bulk' ? 'on' : ''}`} onClick={() => navigate('bulk')}>
               <i className="pi pi-table" />
               <span>Bulk grid</span>
             </button>
@@ -150,6 +169,7 @@ export default function App() {
                   onGenerate={() => run.generate(wf, values)}
                   onCancel={run.cancel}
                   onRestore={restore}
+                  onModeChange={(id) => navigate('outfit-studio', { workflow: id })}
                   onError={slotError}
                   toast={toast}
                 />
