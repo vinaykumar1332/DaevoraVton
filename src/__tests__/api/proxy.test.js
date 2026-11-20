@@ -62,6 +62,17 @@ describe('API proxy', () => {
     expect(res.statusCode).toBe(201);
   });
 
+  it('accepts the path as one string, the way the vercel.json rewrite sends it', async () => {
+    const res = mockRes();
+    await fashn()(req({ query: { path: 'v1/status/abc-123' } }), res);
+    expect(global.fetch.mock.calls[0][0]).toBe('https://api.example.com/v1/status/abc-123');
+    expect(res.statusCode).toBe(201);
+
+    const bad = mockRes();
+    await fashn()(req({ query: { path: 'v1/status/../../admin' } }), bad);
+    expect(bad.statusCode).toBe(403);
+  });
+
   it('only forwards the endpoints the app uses', async () => {
     const calls = [
       ['GET', 'v1/credits', 200],

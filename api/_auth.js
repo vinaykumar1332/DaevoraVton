@@ -63,7 +63,24 @@ const getSecret = () => {
   const s = process.env.SESSION_SECRET || '';
   return s.length >= 32 ? s : null;
 };
-export const authConfigured = () => getUsers().length > 0 && !!getSecret();
+
+/** Why sign-in cannot work on this server (no values are included), or null when it is set up. */
+export function authProblem() {
+  const raw = process.env.APP_USERS;
+  if (!raw) return 'APP_USERS is not set';
+  let list;
+  try {
+    list = JSON.parse(raw);
+  } catch {
+    return 'APP_USERS is not valid JSON (it must be one line, with double quotes)';
+  }
+  if (!Array.isArray(list) || getUsers().length === 0) return 'APP_USERS must be a JSON array of accounts with "username" and "password"';
+  const secret = process.env.SESSION_SECRET || '';
+  if (!secret) return 'SESSION_SECRET is not set';
+  if (secret.length < 32) return 'SESSION_SECRET must be at least 32 characters';
+  return null;
+}
+export const authConfigured = () => authProblem() === null;
 
 /* ---------- credentials + tokens ---------- */
 
@@ -127,8 +144,9 @@ export const resetRateLimit = () => fails.clear();
 
 export async function loginHandler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' }, { Allow: 'POST' });
-  if (!authConfigured()) {
-    return send(res, 503, { error: 'NotConfigured', message: 'Sign-in is not set up on the server (APP_USERS and SESSION_SECRET).' });
+  const problem = authProblem();
+  if (problem) {
+    return send(res, 503, { error: 'NotConfigured', message: `Sign-in is not set up on the server: ${problem}. Add it in the environment variables and redeploy.` });
   }
   const ip = clientIp(req);
   const now = Date.now();
@@ -156,9 +174,8 @@ export async function loginHandler(req, res) {
 }
 
 export async function sessionHandler(req, res) {
-  const user = sessionFromReq(req);
-  if (!user) return send(res, 401, { error: 'NoSession' });
-  send(res, 200, { user });
+  // "Not signed in" is a normal answer here, so it is a 200 (a 401 would show as a red error in the console).
+  send(res, 200, { user: sessionFromReq(req) });
 }
 
 export async function logoutHandler(req, res) {

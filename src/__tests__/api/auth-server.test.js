@@ -98,7 +98,8 @@ describe('handlers', () => {
 
     const sres = mockRes();
     await sessionHandler({ headers: {} }, sres);
-    expect(sres.statusCode).toBe(401);
+    expect(sres.statusCode).toBe(200);
+    expect(sres.json().user).toBeNull();
   });
 
   it('rate limits after 5 failed attempts, even with the right password afterwards', async () => {
@@ -114,11 +115,34 @@ describe('handlers', () => {
     expect(res.headers['Retry-After']).toBeDefined();
   });
 
-  it('answers 503 when the server is not configured, 405 for GET, 400 for bad JSON', async () => {
+  it('answers 503 naming the missing setting (never its value) when the server is not configured', async () => {
+    const attempt = async () => {
+      const r = mockRes();
+      await loginHandler(mockReq('POST', { username: 'admin', password: 'pw-admin' }), r);
+      return r;
+    };
     delete process.env.SESSION_SECRET;
-    const a = mockRes();
-    await loginHandler(mockReq('POST', { username: 'admin', password: 'pw-admin' }), a);
-    expect(a.statusCode).toBe(503);
+    let r = await attempt();
+    expect(r.statusCode).toBe(503);
+    expect(r.json().message).toMatch(/SESSION_SECRET is not set/);
+
+    process.env.SESSION_SECRET = 'short';
+    expect((await attempt()).json().message).toMatch(/at least 32/);
+
+    process.env.SESSION_SECRET = SECRET;
+    process.env.APP_USERS = '[{"username":"admin" "password":"pw"}]';
+    r = await attempt();
+    expect(r.json().message).toMatch(/not valid JSON/);
+    expect(r.body).not.toMatch(/pw-admin|xxxx/);
+
+    delete process.env.APP_USERS;
+    expect((await attempt()).json().message).toMatch(/APP_USERS is not set/);
+    process.env.APP_USERS = '{"not":"an array"}';
+    expect((await attempt()).json().message).toMatch(/JSON array/);
+    process.env.APP_USERS = JSON.stringify(USERS);
+  });
+
+  it('answers 405 for GET and 400 for bad JSON', async () => {
 
     process.env.SESSION_SECRET = SECRET;
     const b = mockRes();

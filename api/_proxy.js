@@ -1,4 +1,5 @@
-// Shared proxy for the Vercel functions api/fashn/[...path].js and api/openai/[...path].js.
+// Shared proxy for the Vercel functions api/fashn.js and api/openai.js. vercel.json rewrites
+// /fashn/v1/credits to /api/fashn?path=v1/credits, so the API path arrives as the `path` query value.
 // It does what the Vite dev proxy does locally: forwards the request to the real API and adds the
 // secret key from an environment variable, so the key never reaches the browser.
 //
