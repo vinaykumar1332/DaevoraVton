@@ -4,14 +4,15 @@ import { ChatProvider } from '@/features/chat/ChatProvider.jsx';
 import ChatStudio from '@/features/chat/ChatStudio.jsx';
 import { __resetMemoryStore } from '@/lib/chatStore.js';
 
-vi.mock('@/workflows/engines.js', () => ({ agentJob: vi.fn(), findWorkflow: () => ({ run: vi.fn() }) }));
-vi.mock('@/agents/chatAgent.js', () => ({ chatTurn: vi.fn(), enhanceRequest: vi.fn() }));
+vi.mock('@/workflows/engines.js', () => ({ findWorkflow: () => ({ run: vi.fn() }) }));
+vi.mock('@/api/backend.js', () => ({ backendChatTurn: vi.fn(), backendStartAgentJob: vi.fn(), backendEnhanceRequest: vi.fn() }));
+vi.mock('@/api/fashn.js', () => ({ downloadImage: vi.fn(async () => true), pollAgent: vi.fn(), extractAgentResults: vi.fn(() => ({ images: [], creditsUsed: 0, tools: [] })) }));
 vi.mock('@/auth/context/AuthContext.jsx', () => ({ useAuth: () => ({ user: { username: 'ui-tester' } }) }));
 vi.mock('@/lib/notify.js', () => ({ notify: vi.fn() }));
 
-import { chatTurn } from '@/agents/chatAgent.js';
+import { backendChatTurn } from '@/api/backend.js';
 
-const REPLY = { reply: 'Tell me more.', action: 'reply', generate: false, prompt: '', use_photos: [], use_previous: false, resolution: '4k', target_photo: null };
+const REPLY = { reply: 'Tell me more.', action: 'reply', generate: false, prompt: '', enginePrompt: '', use_photos: [], use_previous: false, resolution: '4k', target_photo: null, photo_notes: [], output_view: 'front' };
 
 // jsdom gaps used by Radix popovers and the chat log
 globalThis.ResizeObserver ??= class {
@@ -40,8 +41,8 @@ const heading = (name) => screen.getByRole('heading', { name });
 
 beforeEach(() => {
   __resetMemoryStore();
-  chatTurn.mockReset();
-  chatTurn.mockResolvedValue(REPLY);
+  backendChatTurn.mockReset();
+  backendChatTurn.mockResolvedValue(REPLY);
 });
 
 describe('chat header: history and new chat', () => {
@@ -93,7 +94,7 @@ describe('failed messages: retry and edit', () => {
 
   it('shows why a message failed, and Retry sends the same text again (once, at the end)', async () => {
     const user = await setup();
-    chatTurn.mockRejectedValueOnce(fail());
+    backendChatTurn.mockRejectedValueOnce(fail());
     await say(user, 'blue saree on the model', null);
 
     const alert = await screen.findByRole('alert');
@@ -102,15 +103,15 @@ describe('failed messages: retry and edit', () => {
 
     await user.click(within(alert).getByRole('button', { name: /retry/i }));
     await screen.findByText('Tell me more.');
-    expect(chatTurn).toHaveBeenCalledTimes(2);
-    expect(chatTurn.mock.calls[1][0].userText).toBe('blue saree on the model');
+    expect(backendChatTurn).toHaveBeenCalledTimes(2);
+    expect(backendChatTurn.mock.calls[1][0].userText).toBe('blue saree on the model');
     expect(within(screen.getByRole('log')).getAllByText('blue saree on the model')).toHaveLength(1); // the failed copy was replaced
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('Edit lets you change the text in place and resend; Escape cancels', async () => {
     const user = await setup();
-    chatTurn.mockRejectedValueOnce(fail());
+    backendChatTurn.mockRejectedValueOnce(fail());
     await say(user, 'blue sare', null);
     const alert = await screen.findByRole('alert');
 
@@ -126,14 +127,14 @@ describe('failed messages: retry and edit', () => {
     await user.type(again, 'blue saree, Nivi drape{Enter}');
 
     await screen.findByText('Tell me more.');
-    expect(chatTurn.mock.calls.at(-1)[0].userText).toBe('blue saree, Nivi drape');
+    expect(backendChatTurn.mock.calls.at(-1)[0].userText).toBe('blue saree, Nivi drape');
     expect(screen.queryByText('blue sare')).toBeNull();
     expect(heading('blue saree, Nivi drape')).toBeInTheDocument(); // the chat is renamed after the edited text
   });
 
   it('a stopped message offers Retry too, and failed turns are left out of the assistant history', async () => {
     const user = await setup();
-    chatTurn.mockImplementationOnce(
+    backendChatTurn.mockImplementationOnce(
       (args) => new Promise((_, reject) => args.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))))
     );
     await say(user, 'slow one', null);
@@ -141,7 +142,7 @@ describe('failed messages: retry and edit', () => {
     expect(await screen.findByText(/stopped before it finished/i)).toBeInTheDocument();
 
     await say(user, 'next message');
-    const history = chatTurn.mock.calls.at(-1)[0].history.map((h) => h.content);
+    const history = backendChatTurn.mock.calls.at(-1)[0].history.map((h) => h.content);
     expect(history).not.toContain('slow one');
   });
 });
@@ -152,13 +153,13 @@ describe('composer', () => {
     const send = screen.getByRole('button', { name: 'Send' });
     expect(send).toBeDisabled();
 
-    const tags = within(screen.getByRole('group', { name: 'Suggestions' })).getAllByRole('button');
-    expect(tags.length).toBeGreaterThan(0);
-    tags.forEach((t) => expect(t.querySelector('svg')).not.toBeNull()); // every tag has an icon
+    const cards = within(screen.getByRole('group', { name: 'Quick start' })).getAllByRole('button');
+    expect(cards.length).toBeGreaterThan(0);
+    cards.forEach((t) => expect(t.querySelector('svg')).not.toBeNull()); // every card has an icon
 
-    await user.click(tags[0]);
+    await user.click(cards[0]);
     const box = screen.getByRole('textbox', { name: 'Message' });
-    expect(box).toHaveValue(tags[0].textContent);
+    expect(box).toHaveValue('Dress a model in my garment');
     expect(box).toHaveFocus();
     expect(send).toBeEnabled();
   });

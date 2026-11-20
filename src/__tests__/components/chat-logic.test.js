@@ -11,7 +11,7 @@ describe('refersBack', () => {
   );
 });
 import { chatReducer, initialState, newChat } from '@/features/chat/chatReducer.js';
-import { normalizeAction } from '@/agents/chatAgent.js';
+import { normalizeAction } from '../../../backend/agents/chat.js';
 
 describe('detectToolIntent', () => {
   it.each([

@@ -1,7 +1,16 @@
-// Chat turn for the AI Studio: OpenAI talks with the user, asks follow-up questions when
-// needed, and decides when to create an image (and which photos + prompt to send to FASHN).
-import { FashnError } from '@/api/fashn.js';
-import { normalizeNotes, normalizeView } from '@/agents/studioPrompt.js';
+// Server-side chat turn: OpenAI decides what to do (generate, reply, upscale, remove_background),
+// then buildPrompt adds the house rules and view corrections. Returns the full turn including enginePrompt.
+// Calls OpenAI directly — no proxy needed on the backend.
+import { normalizeNotes, normalizeView, buildPrompt } from './prompt.js';
+
+class ApiError extends Error {
+  constructor({ status = null, code = 'Error', message = '' }) {
+    super(message || code);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
 
 const SYSTEM = `You are a friendly fashion styling assistant inside a virtual try-on studio. You chat with the user.
 The user can send text and photos. Photos are shown to you labelled "photo N" (N is their position in this session).
@@ -28,16 +37,133 @@ Reply with JSON only:
 {"reply": string, "action": "reply" | "generate" | "upscale" | "remove_background", "prompt": string, "use_photos": number[], "use_previous": boolean, "resolution": string, "target_photo": number | null, "photo_notes": [{"photo": number, "role": string, "view": string, "worn"?: boolean, "length"?: string, "framing"?: string}], "output_view": "front" | "back" | "side" | "three-quarter"}
 For "reply", "upscale" and "remove_background", use an empty prompt, an empty use_photos array, use_previous false and an empty photo_notes array. Use at most 5 photos.`;
 
+export function normalizeAction(parsed, { photoCount, newCount, firstNew, prompt }) {
+  const known = ['reply', 'generate', 'upscale', 'remove_background'];
+  let action = known.includes(parsed.action) ? parsed.action : parsed.generate ? 'generate' : 'reply';
+  if (action === 'generate' && !prompt) action = 'reply';
+  const t = Number(parsed.target_photo);
+  const targetPhoto = Number.isInteger(t) && t >= 1 && t <= photoCount ? t : newCount > 0 ? firstNew : null;
+  const resolution = ['2k', '3k', '4k'].includes(parsed.resolution) ? parsed.resolution : '4k';
+  return { action, generate: action === 'generate', target_photo: targetPhoto, resolution };
+}
+
 /**
- * history:   [{role:'user'|'assistant', content: string}] (text only)
- * photos:    [{src}] all session photos, in order
- * newCount:  how many of the last photos were sent in this message
+ * Run a chat turn on the server.
+ * photos: [{id, src}] — session photos in order
+ * Returns the standard turn shape plus enginePrompt (prompt + house rules + view rules).
  */
-/** Rewrites a short request into a clear, specific one. Keeps the user's intent. */
-export async function enhanceRequest({ text, photoCount, signal }) {
-  const res = await fetch('/openai/v1/chat/completions', {
+export async function chatTurn({ history, userText, photos, newCount = 0, lastPrompt, hasPrevious, forcePrevious = false, photoMeta = {}, openaiKey, signal }) {
+  const recent = photos.slice(-8);
+  const offset = photos.length - recent.length;
+  const firstNew = photos.length - newCount + 1;
+
+  const intro =
+    `Photos in this session: ${photos.length ? photos.map((_, i) => `photo ${i + 1}`).join(', ') : 'none yet'}.` +
+    (newCount ? ` NEW in this message: ${newCount === 1 ? `photo ${firstNew}` : `photos ${firstNew}–${photos.length}`}.` : ' No new photos in this message.') +
+    (hasPrevious ? ' A previous result exists.' : ' No previous result yet.') +
+    (lastPrompt ? `\nPrevious prompt: ${lastPrompt}` : '');
+
+  // Sanitize photo meta from the client before embedding in the prompt.
+  // Each field is whitelisted to safe enum values or short free-text strings — no raw client data reaches the prompt.
+  const ROLES = new Set(['model', 'garment', 'shoes', 'accessory', 'background', 'other']);
+  const VIEWS = new Set(['front', 'back', 'side', 'three-quarter', 'flat-lay', 'unknown']);
+  const LENGTHS = new Set(['upper', 'lower', 'full']);
+  const FRAMINGS = new Set(['full', 'partial']);
+  const clip = (s, max = 60) => (typeof s === 'string' ? s.replace(/[\r\n]/g, ' ').slice(0, max) : null);
+
+  const metaLines = photos
+    .map((p, i) => {
+      const m = photoMeta[p.id];
+      if (!m || typeof m !== 'object') return null;
+      const role = ROLES.has(m.role) ? m.role : null;
+      const type = clip(m.type, 40);
+      const color = clip(m.color, 40);
+      const fabric = clip(m.fabric, 30);
+      const view = VIEWS.has(m.view) ? `view: ${m.view}` : null;
+      const worn = role === 'garment' && typeof m.worn === 'boolean' ? `worn: ${m.worn}` : null;
+      const length = LENGTHS.has(m.length) ? `length: ${m.length}` : null;
+      const framing = FRAMINGS.has(m.framing) ? `framing: ${m.framing}` : null;
+      const notes = clip(m.notes, 80);
+      const parts = [role, type, color, fabric, view, worn, length, framing, notes].filter(Boolean);
+      if (!parts.length) return null;
+      return `photo ${i + 1}: ${parts.join(', ')}`;
+    })
+    .filter(Boolean);
+
+  const introWithMeta = metaLines.length ? `${intro}\nPre-analyzed photos:\n${metaLines.join('\n')}` : intro;
+
+  const content = [{ type: 'text', text: introWithMeta }];
+  recent.forEach((p, i) => {
+    const n = offset + i + 1;
+    content.push({ type: 'text', text: `photo ${n}${n >= firstNew ? ' (NEW)' : ''}:` });
+    content.push({ type: 'image_url', image_url: { url: p.src, detail: 'high' } });
+  });
+  content.push({ type: 'text', text: `User says: ${userText || '(sent photos only)'}` });
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      response_format: { type: 'json_object' },
+      messages: [{ role: 'system', content: SYSTEM }, ...history, { role: 'user', content }],
+    }),
+    signal,
+  });
+
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const e = data?.error ?? {};
+    throw new ApiError({ status: res.status, code: e.code || e.type || `OpenAI${res.status}`, message: e.message || res.statusText });
+  }
+
+  let parsed = {};
+  try {
+    parsed = JSON.parse(data?.choices?.[0]?.message?.content ?? '{}');
+  } catch {}
+
+  const n = photos.length;
+  const validIdx = (Array.isArray(parsed.use_photos) ? parsed.use_photos : [])
+    .map(Number)
+    .filter((x) => Number.isInteger(x) && x >= 1 && x <= n)
+    .slice(0, 5);
+  const newIdx = Array.from({ length: newCount }, (_, i) => firstNew + i).slice(0, 5);
+  const usePhotos = validIdx.length ? validIdx : newIdx;
+  const useNew = newCount > 0;
+  const usePrevious = (!!parsed.use_previous || forcePrevious) && !!hasPrevious && (!useNew || forcePrevious);
+  const prompt = String(parsed.prompt ?? '').slice(0, 10000);
+
+  const turn = {
+    reply: String(parsed.reply ?? '').slice(0, 600) || 'Tell me a bit more about the look you want.',
+    ...normalizeAction(parsed, { photoCount: n, newCount, firstNew, prompt }),
+    prompt,
+    use_photos: usePhotos,
+    use_previous: usePrevious,
+    photo_notes: normalizeNotes(parsed.photo_notes, n),
+    output_view: normalizeView(parsed.output_view),
+  };
+
+  // Build the full engine prompt (assistant prompt + house rules + view rules) on the server.
+  const enginePrompt = turn.generate
+    ? buildPrompt({
+        prompt: turn.prompt,
+        notes: turn.photo_notes,
+        usePhotos: turn.use_photos.filter((idx) => idx >= 1 && idx <= n),
+        usePrevious: turn.use_previous,
+        outputView: turn.output_view,
+      })
+    : '';
+
+  return { ...turn, enginePrompt };
+}
+
+/**
+ * Rewrite the user's short request into a clear, specific instruction.
+ */
+export async function enhanceRequest({ text, photoCount, openaiKey, signal }) {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
     body: JSON.stringify({
       model: 'gpt-4o',
       response_format: { type: 'json_object' },
@@ -55,100 +181,11 @@ export async function enhanceRequest({ text, photoCount, signal }) {
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const e = data?.error ?? {};
-    throw new FashnError({ status: res.status, code: e.code || e.type || `OpenAI${res.status}`, message: e.message || res.statusText });
+    throw new ApiError({ status: res.status, code: e.code || e.type || `OpenAI${res.status}`, message: e.message || res.statusText });
   }
   let parsed = {};
   try {
     parsed = JSON.parse(data?.choices?.[0]?.message?.content ?? '{}');
-  } catch {
-    parsed = {};
-  }
+  } catch {}
   return String(parsed.text ?? '').trim().slice(0, 600) || text;
-}
-
-export async function chatTurn({ history, userText, photos, newCount = 0, lastPrompt, hasPrevious, signal }) {
-  const recent = photos.slice(-8);
-  const offset = photos.length - recent.length;
-  const firstNew = photos.length - newCount + 1; // 1-based number of the first NEW photo
-
-  const intro =
-    `Photos in this session: ${photos.length ? photos.map((_, i) => `photo ${i + 1}`).join(', ') : 'none yet'}.` +
-    (newCount ? ` NEW in this message: ${newCount === 1 ? `photo ${firstNew}` : `photos ${firstNew}–${photos.length}`}.` : ' No new photos in this message.') +
-    (hasPrevious ? ' A previous result exists.' : ' No previous result yet.') +
-    (lastPrompt ? `\nPrevious prompt: ${lastPrompt}` : '');
-
-  const content = [{ type: 'text', text: intro }];
-  recent.forEach((p, i) => {
-    const n = offset + i + 1;
-    content.push({ type: 'text', text: `photo ${n}${n >= firstNew ? ' (NEW)' : ''}:` });
-    content.push({ type: 'image_url', image_url: { url: p.src, detail: 'high' } });
-  });
-  content.push({ type: 'text', text: `User says: ${userText || '(sent photos only)'}` });
-
-  const res = await fetch('/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      response_format: { type: 'json_object' },
-      messages: [{ role: 'system', content: SYSTEM }, ...history, { role: 'user', content }],
-    }),
-    signal,
-  });
-
-  const data = await res.json().catch(() => null);
-  if (!res.ok) {
-    const e = data?.error ?? {};
-    throw new FashnError({
-      status: res.status,
-      code: e.code || e.type || `OpenAI${res.status}`,
-      message: e.message || res.statusText,
-      raw: data,
-    });
-  }
-
-  let parsed = {};
-  try {
-    parsed = JSON.parse(data?.choices?.[0]?.message?.content ?? '{}');
-  } catch {
-    parsed = {};
-  }
-
-  const n = photos.length;
-  const validIdx = (Array.isArray(parsed.use_photos) ? parsed.use_photos : [])
-    .map(Number)
-    .filter((x) => Number.isInteger(x) && x >= 1 && x <= n)
-    .slice(0, 5);
-
-  // Guardrails: new photos in this message are always used, and the old result is not reused by accident.
-  const newIdx = Array.from({ length: newCount }, (_, i) => firstNew + i).slice(0, 5);
-  const usePhotos = validIdx.length ? validIdx : newIdx;
-  const useNew = newCount > 0;
-  const usePrevious = !!parsed.use_previous && !!hasPrevious && !useNew;
-
-  const prompt = String(parsed.prompt ?? '').slice(0, 10000);
-  return {
-    reply: String(parsed.reply ?? '').slice(0, 600) || 'Tell me a bit more about the look you want.',
-    ...normalizeAction(parsed, { photoCount: n, newCount, firstNew, prompt }),
-    prompt,
-    use_photos: usePhotos,
-    use_previous: usePrevious,
-    photo_notes: normalizeNotes(parsed.photo_notes, n),
-    output_view: normalizeView(parsed.output_view),
-  };
-}
-
-/**
- * Turns the model's action fields into a safe, complete shape.
- * Tools need an image: target_photo (1-based) if valid, else the first NEW photo, else null (= previous result).
- */
-export function normalizeAction(parsed, { photoCount, newCount, firstNew, prompt }) {
-  const known = ['reply', 'generate', 'upscale', 'remove_background'];
-  let action = known.includes(parsed.action) ? parsed.action : parsed.generate ? 'generate' : 'reply';
-  if (action === 'generate' && !prompt) action = 'reply';
-
-  const t = Number(parsed.target_photo);
-  const targetPhoto = Number.isInteger(t) && t >= 1 && t <= photoCount ? t : newCount > 0 ? firstNew : null;
-  const resolution = ['2k', '3k', '4k'].includes(parsed.resolution) ? parsed.resolution : '4k';
-  return { action, generate: action === 'generate', target_photo: targetPhoto, resolution };
 }

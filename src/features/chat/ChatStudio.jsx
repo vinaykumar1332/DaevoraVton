@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowUp, Check, CircleStop, Download, Eraser, Footprints, History, ImageIcon, Loader2, Maximize2, MessageSquare, Palette, Paperclip, Pencil,
-  PersonStanding, Plus, RotateCcw, Scan, Search, Shirt, Sparkles, Square, SquarePen, Trash2, TriangleAlert, X,
+  PersonStanding, Plus, RotateCcw, Scan, Search, Shirt, Sparkles, Square, SquarePen, Table2, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
 import { Input } from '@/components/ui/input.jsx';
@@ -11,7 +11,8 @@ import PageLoader from '@/components/common/PageLoader.jsx';
 import FittingLoader from '@/components/common/FittingLoader.jsx';
 import { downloadImage } from '@/api/fashn.js';
 import { prepareFile } from '@/lib/imageIntake.js';
-import { enhanceRequest } from '@/agents/chatAgent.js';
+import { shrinkDataURI } from '@/lib/imageShrink.js';
+import { backendEnhanceRequest as enhanceRequest, backendAnalyzePhoto } from '@/api/backend.js';
 import { friendlyError } from '@/lib/messages.js';
 import ResultBubble from '@/features/gallery/ResultCard.jsx';
 import { useChat } from './ChatProvider.jsx';
@@ -56,9 +57,43 @@ function useElapsed(startedAt) {
   return startedAt ? Math.max(0, Math.floor((now - startedAt) / 1000)) : 0;
 }
 
-export default function ChatStudio() {
-  const { state, active, run, send, runTool, resend, stop, newChat, selectChat, deleteChat } = useChat();
+// Quick-start cards for an empty chat. Each one either fills the composer or opens an existing page.
+const QUICK_ACTIONS = [
+  { label: 'Try an outfit', hint: 'Dress a model in a garment', icon: Shirt, text: 'Dress a model in my garment' },
+  { label: 'Change background', hint: 'Studio or custom setting', icon: ImageIcon, text: 'Change the background to a studio' },
+  { label: 'Upscale image', hint: 'Sharper, up to 4K', icon: Maximize2, text: 'Upscale this to 4K' },
+  { label: 'Remove background', hint: 'Transparent cut-out', icon: Eraser, text: 'Remove the background' },
+  { label: 'Bulk generation', hint: 'Models × garments grid', icon: Table2, page: 'bulk' },
+];
+
+function QuickActions({ onPick, onOpenPage }) {
+  return (
+    <section className="chat-hero" aria-labelledby="hero-title">
+      <span className="avatar hero-avatar" aria-hidden="true">✦</span>
+      <h3 id="hero-title">What are we styling today?</h3>
+      <p>Describe a look, add photos, or start with a quick action.</p>
+      <div className="quick-actions" role="group" aria-label="Quick start">
+        {QUICK_ACTIONS.map(({ label, hint, icon: Icon, text, page }) => (
+          <button key={label} type="button" className="quick-card" onClick={() => (page ? onOpenPage(page) : onPick(text))}>
+            <span className="quick-icon" aria-hidden="true">
+              <Icon />
+            </span>
+            <span className="quick-text">
+              <b>{label}</b>
+              <small>{hint}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export default function ChatStudio({ onNavigate }) {
+  const { state, active, run, send, runTool, resend, regenerate, stop, newChat, selectChat, deleteChat } = useChat();
   const [pending, setPending] = useState([]); // photos attached to the message being written
+  const [photoMeta, setPhotoMeta] = useState({}); // { [photoId]: analysis } — populated async on upload
+  const [editOn, setEditOn] = useState(true); // the next message changes the last look (same image, same resolution)
   const [input, setInput] = useState('');
   const [enhancing, setEnhancing] = useState(false);
   const [lightbox, setLightbox] = useState(null); // {images, index}
@@ -70,10 +105,13 @@ export default function ChatStudio() {
 
   const busy = !!run; // one job at a time, in any chat
   const busyHere = run?.chatId === active?.id;
+  const isEmpty = !busy && (active?.messages.length ?? 0) <= 1;
   const elapsed = useElapsed(run?.startedAt);
 
   // A different chat starts with an empty composer, scrolled to the end.
   useEffect(() => {
+    setPhotoMeta({});
+    setEditOn(true);
     setPending([]);
     setInput('');
     setAtBottom(true);
@@ -109,7 +147,15 @@ export default function ChatStudio() {
     const bad = results.find((r) => r.status === 'rejected');
     if (bad) notify({ severity: 'warn', summary: 'Photo', detail: bad.reason?.message });
     if (files.length > room) notify({ severity: 'warn', summary: 'Photos', detail: `Only ${room} more photo(s) fit in this message.` });
-    if (ok.length) setPending((p) => [...p, ...ok]);
+    if (ok.length) {
+      setPending((p) => [...p, ...ok]);
+      // Analyze each photo in the background — failures are silently ignored.
+      ok.forEach(({ id, src }) => {
+        shrinkDataURI(src).then((small) => backendAnalyzePhoto({ src: small })).then((meta) => {
+          if (meta && Object.keys(meta).length) setPhotoMeta((m) => ({ ...m, [id]: meta }));
+        });
+      });
+    }
   }
 
   async function enhance() {
@@ -126,16 +172,27 @@ export default function ChatStudio() {
     }
   }
 
+  /** Puts a generated image into the composer, so the next message changes it. */
+  function attachResult(src) {
+    if (pending.length >= MAX_PHOTOS) return notify({ severity: 'warn', summary: 'Photos', detail: `You can attach up to ${MAX_PHOTOS} photos per message.` });
+    setPending((p) => [...p, { id: uid(), src }]);
+    notify({ severity: 'info', summary: 'Added to your message', detail: 'Type the change you want, then send.', life: 3000 });
+    taRef.current?.focus();
+  }
+
   function submit(textOverride) {
     const text = (textOverride ?? input).trim();
     if (busy || (!text && !pending.length)) return;
     setAtBottom(true);
-    send(active.id, text, pending);
+    const isLastAttached = pending.some((p) => p.src === active.lastResult?.url);
+    const editOf = editOn && active.lastResult && !isLastAttached ? active.lastResult : null;
+    send(active.id, text, pending, photoMeta, editOf);
     setPending([]);
+    setPhotoMeta({});
     setInput('');
   }
 
-  const suggestions = busy ? [] : suggestFor(input, pending, active.lastResult, active.messages.length <= 1);
+  const suggestions = busy ? [] : suggestFor(input, pending, active.lastResult, false);
 
   return (
       <div
@@ -188,13 +245,24 @@ export default function ChatStudio() {
             setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 120);
           }}
         >
-          {active.messages.map((m) => (
+          {isEmpty && (
+            <QuickActions
+              onPick={(text) => {
+                setInput(text);
+                taRef.current?.focus();
+              }}
+              onOpenPage={(page) => onNavigate?.(page)}
+            />
+          )}
+          {!isEmpty && active.messages.map((m) => (
             <Message
               key={m.id}
               m={m}
               busy={busy}
               onOpen={(images, index) => setLightbox({ images, index })}
               onTool={(tool, src, opts) => runTool(active.id, { tool, src, ...opts })}
+              onRegenerate={() => regenerate(active.id, m.id)}
+              onAttach={attachResult}
               onResend={(text) => {
                 setAtBottom(true);
                 resend(active.id, m.id, text);
@@ -255,17 +323,47 @@ export default function ChatStudio() {
             </div>
           )}
 
+          {editOn && active.lastResult && (
+            <div className="edit-chip" role="status">
+              <img src={active.lastResult.url} alt="" />
+              <span className="edit-chip-text">
+                <b>{pending.length ? `Adding ${pending.length} photo${pending.length > 1 ? 's' : ''} to the last look` : 'Changing the last look'}</b>
+                <small>
+                  {pending.length
+                    ? 'Your photos are combined with this image, at the same resolution.'
+                    : 'Type the change. The same image and resolution are used.'}
+                </small>
+              </span>
+              <button type="button" className="edit-chip-x" onClick={() => setEditOn(false)} aria-label="Start a new look instead" data-tip="Start a new look">
+                <X aria-hidden="true" />
+              </button>
+            </div>
+          )}
+
           <div className={`cbox ${busy ? 'is-busy' : ''}`}>
             {pending.length > 0 && (
               <div className="cattach" role="group" aria-label={`${pending.length} of ${MAX_PHOTOS} photos attached`}>
-                {pending.map((p, i) => (
-                  <div className="cattach-item" key={p.id}>
-                    <img src={p.src} alt={`Attached photo ${i + 1}`} />
-                    <button type="button" className="cattach-remove" aria-label={`Remove attached photo ${i + 1}`} onClick={() => setPending((x) => x.filter((y) => y.id !== p.id))}>
-                      <X aria-hidden="true" />
-                    </button>
-                  </div>
-                ))}
+                {pending.map((p, i) => {
+                  const meta = photoMeta[p.id];
+                  const tags = meta ? [meta.type, meta.color, meta.view].filter(Boolean) : null;
+                  return (
+                    <div className="cattach-item" key={p.id}>
+                      <img src={p.src} alt={`Attached photo ${i + 1}`} />
+                      {tags ? (
+                        <div className="cattach-tags" aria-label="Detected">
+                          {tags.map((t) => <span key={t} className="cattach-tag">{t}</span>)}
+                        </div>
+                      ) : (
+                        <div className="cattach-tags cattach-tags--analyzing" aria-label="Analyzing">
+                          <Loader2 className="cattach-spin" aria-hidden="true" />
+                        </div>
+                      )}
+                      <button type="button" className="cattach-remove" aria-label={`Remove attached photo ${i + 1}`} onClick={() => setPending((x) => x.filter((y) => y.id !== p.id))}>
+                        <X aria-hidden="true" />
+                      </button>
+                    </div>
+                  );
+                })}
                 {pending.length < MAX_PHOTOS && (
                   <button type="button" className="cattach-add" aria-label="Attach more photos" onClick={() => fileRef.current?.click()} disabled={busy}>
                     <Plus aria-hidden="true" />
@@ -307,7 +405,7 @@ export default function ChatStudio() {
                 type="button"
                 className="cbtn"
                 aria-label="Attach photos"
-                data-tip="Attach photos"
+                data-tip={editOn && active.lastResult ? 'Add photos to the last look' : 'Attach photos'}
                 onClick={() => fileRef.current?.click()}
                 disabled={busy || pending.length >= MAX_PHOTOS}
               >
@@ -461,10 +559,10 @@ function SessionMenu({ state, run, onSelect, onDelete }) {
   );
 }
 
-function Message({ m, busy, onOpen, onTool, onResend }) {
+function Message({ m, busy, onOpen, onTool, onRegenerate, onAttach, onResend }) {
   if (m.role === 'user') return <UserMessage m={m} busy={busy} onOpen={onOpen} onResend={onResend} />;
 
-  if (m.role === 'result') return <ResultBubble m={m} onOpen={onOpen} onTool={onTool} busy={busy} />;
+  if (m.role === 'result') return <ResultBubble m={m} onOpen={onOpen} onTool={onTool} onRegenerate={onRegenerate} onAttach={onAttach} busy={busy} />;
 
   return (
     <div className="msg bot">

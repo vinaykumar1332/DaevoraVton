@@ -1,6 +1,7 @@
 // OpenAI image editing (gpt-image-1) through the Vite /openai proxy.
 // The proxy injects OPENAI_API_KEY, so the key never reaches the browser.
 import { FashnError } from '@/api/fashn.js';
+import { OPENAI_IMAGE_EDIT } from '@/api/endpoints.js';
 
 export async function editWithOpenAI({ images, prompt, size = 'auto', quality = 'medium', n = 1, signal }) {
   if (!images.length) throw new FashnError({ status: 400, code: 'BadRequest', message: 'Add at least one image' });
@@ -19,7 +20,7 @@ export async function editWithOpenAI({ images, prompt, size = 'auto', quality = 
     form.append('image[]', blob, `image${i + 1}.${ext}`);
   }
 
-  const res = await fetch('/openai/v1/images/edits', { method: 'POST', body: form, signal });
+  const res = await fetch(OPENAI_IMAGE_EDIT, { method: 'POST', body: form, signal });
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const e = data?.error ?? {};

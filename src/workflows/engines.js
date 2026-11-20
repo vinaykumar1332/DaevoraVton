@@ -16,6 +16,7 @@ import {
   agentCostPerImage,
 } from '@/api/fashn.js';
 import { editWithOpenAI } from '@/api/openai.js';
+import { FASHN_RUN, FASHN_STATUS } from '@/api/endpoints.js';
 import { writePrompt } from '@/agents/promptAgent.js';
 import { friendlyStatus } from '@/lib/messages.js';
 
@@ -28,7 +29,7 @@ const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !=
 const addCredits = (a, b) => (a == null && b == null ? null : (a ?? 0) + (b ?? 0));
 
 async function startRun(model_name, inputs, signal) {
-  const data = await api('/v1/run', { method: 'POST', body: { model_name, inputs: clean(inputs) }, signal });
+  const data = await api(FASHN_RUN, { method: 'POST', body: { model_name, inputs: clean(inputs) }, signal });
   if (data?.error) throw toFashnError(data);
   if (!data?.id) throw toFashnError(data ?? 'No job id returned');
   return data.id;
@@ -36,7 +37,7 @@ async function startRun(model_name, inputs, signal) {
 
 async function pollRun(id, { signal, onUpdate }) {
   for (;;) {
-    const d = await api(`/v1/status/${encodeURIComponent(id)}`, { signal });
+    const d = await api(FASHN_STATUS(id), { signal });
     onUpdate?.(d);
     if (d.status === 'completed') {
       const images = Array.isArray(d.output) ? d.output : (d.output?.images ?? []);

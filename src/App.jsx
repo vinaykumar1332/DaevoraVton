@@ -3,7 +3,7 @@ import { useRoute } from '@/lib/router.js';
 // Chat state sits above the routes, so a running chat job continues while other pages are open.
 import { ChatProvider } from '@/features/chat/ChatProvider.jsx';
 import { OUTFIT_MODES } from '@/workflows/outfitModes.js';
-import { ChevronsLeft, LogOut, Menu, Table2, User } from 'lucide-react';
+import { LogOut, Menu, PanelLeft, Table2 } from 'lucide-react';
 import { useMediaQuery } from '@/hooks/useMediaQuery.js';
 import { useStoredState } from '@/hooks/useStoredState.js';
 import { WfIcon } from '@/lib/icons.jsx';
@@ -15,6 +15,7 @@ import { useWorkflowRun, firstPhoto } from '@/hooks/useWorkflowRun.js';
 import { WORKFLOWS, NAV_GROUPS, NAV_IDS, findWorkflow, defaultValues, missingFields } from '@/workflows/engines.js';
 import { friendlyError } from '@/lib/messages.js';
 import PageLoader from '@/components/common/PageLoader.jsx';
+import ErrorBoundary from '@/components/common/ErrorBoundary.jsx';
 
 // Every page has its own URL path: /<id>. 'ai-studio' and the form workflows come from NAV_IDS.
 const ROUTE_IDS = [...NAV_IDS, 'bulk'];
@@ -127,51 +128,49 @@ export default function App() {
     <div className="shell">
       <Toaster position="top-right" richColors closeButton />
 
-      <header className="topbar">
-        <div className="brand">
-          {/* Phones only: opens the menu drawer. On desktop the sidebar has its own collapse button (and Ctrl+B). */}
-          {isMobile && (
-            <button type="button" className="nav-toggle" onClick={toggleNav} aria-controls="app-nav" aria-expanded={drawerOpen} aria-label={drawerOpen ? 'Close menu' : 'Open menu'}>
-              <Menu />
-            </button>
-          )}
+      {/* Mobile header — hamburger only, no topbar on desktop */}
+      {isMobile && (
+        <header className="topbar-mobile">
+          <button type="button" className="nav-toggle" onClick={toggleNav} aria-controls="app-nav" aria-expanded={drawerOpen} aria-label={drawerOpen ? 'Close menu' : 'Open menu'}>
+            <Menu />
+          </button>
           <span className="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 32 32">
-              <path d="M16 4c2 0 3 1.4 3 3 0 1.4-1 2.2-2.2 2.9L16 10.4 26.5 17c1.4.9 1.2 3-1.2 3H6.7c-2.4 0-2.6-2.1-1.2-3L16 10.4" />
-            </svg>
+            <svg viewBox="0 0 32 32"><path d="M16 4c2 0 3 1.4 3 3 0 1.4-1 2.2-2.2 2.9L16 10.4 26.5 17c1.4.9 1.2 3-1.2 3H6.7c-2.4 0-2.6-2.1-1.2-3L16 10.4" /></svg>
           </span>
-          <div>
-            <h1>Fitting Room</h1>
-            <small>Try any look on, before it exists</small>
-          </div>
-        </div>
-        <div className="topbar-right">
-          <button
-            type="button"
-            className="credits"
-            onClick={refreshCredits}
-            disabled={creditsLoading}
-            title={
-              credits?.subscription != null
-                ? `Subscription ${credits.subscription} · On-demand ${credits.onDemand ?? '-'}. Click to refresh.`
-                : 'Click to refresh'
-            }
-          >
-            <b>{creditsLoading ? '…' : (credits?.total ?? 'n/a')}</b> credits
-          </button>
-          <button type="button" className="credits user-chip" onClick={logout} title="Sign out">
-            <User className="size-4" /> {user?.name} <LogOut className="size-4" />
-          </button>
-        </div>
-      </header>
+          <span className="topbar-mobile-title">Fitting Room</span>
+        </header>
+      )}
 
       <div className={`body ${railCollapsed ? 'sb-collapsed' : ''}`}>
         <nav id="app-nav" className="sidebar" aria-label="Workflows" data-collapsed={railCollapsed} data-open={isMobile && drawerOpen}>
+
+          {!isMobile && (
+            <div className="sb-head">
+              <span className="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 32 32"><path d="M16 4c2 0 3 1.4 3 3 0 1.4-1 2.2-2.2 2.9L16 10.4 26.5 17c1.4.9 1.2 3-1.2 3H6.7c-2.4 0-2.6-2.1-1.2-3L16 10.4" /></svg>
+              </span>
+              <div className="sb-brand-text">
+                <strong>Fitting Room</strong>
+                <small>Try any look on</small>
+              </div>
+              <button
+                type="button"
+                className="sb-toggle"
+                onClick={toggleNav}
+                aria-controls="app-nav"
+                aria-expanded={!collapsed}
+                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                data-tip={collapsed ? 'Expand (Ctrl+B)' : 'Collapse (Ctrl+B)'}
+              >
+                <PanelLeft aria-hidden="true" />
+              </button>
+            </div>
+          )}
+
+          {/* Navigation groups */}
           {NAV.map(({ g, items }) => (
             <div className="nav-group" key={g}>
-              <div className="nav-title">
-                <span>{g}</span>
-              </div>
+              <div className="nav-title"><span>{g}</span></div>
               {items.map((it) => (
                 <button
                   key={it.id}
@@ -189,29 +188,45 @@ export default function App() {
             </div>
           ))}
 
+          {/* Spacer pushes footer to bottom */}
+          <div className="sb-spacer" />
+
+          {/* Credits + user at the bottom of the sidebar */}
           {!isMobile && (
-            <button
-              type="button"
-              className="nav-item nav-collapse"
-              onClick={toggleNav}
-              data-tip="Expand sidebar (Ctrl+B)"
-              title={collapsed ? undefined : 'Collapse sidebar (Ctrl+B)'}
-              aria-controls="app-nav"
-              aria-expanded={!collapsed}
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              <ChevronsLeft aria-hidden="true" />
-              <span className="nav-label">Collapse</span>
-            </button>
+            <div className="sb-footer">
+              <div className="sb-account">
+                <span className="sb-avatar" aria-hidden="true">{(user?.name ?? '?').trim().charAt(0).toUpperCase()}</span>
+                <div className="sb-account-text">
+                  <strong>{user?.name}</strong>
+                  <button
+                    type="button"
+                    className="sb-credits"
+                    onClick={refreshCredits}
+                    disabled={creditsLoading}
+                    title={
+                      credits?.subscription != null
+                        ? `Subscription ${credits.subscription} · On-demand ${credits.onDemand ?? '-'}. Click to refresh.`
+                        : 'Click to refresh'
+                    }
+                  >
+                    <b>{creditsLoading ? '…' : (credits?.total ?? 'n/a')}</b> credits
+                  </button>
+                </div>
+                <button type="button" className="sb-signout" onClick={logout} aria-label="Sign out" data-tip="Sign out">
+                  <LogOut aria-hidden="true" />
+                </button>
+              </div>
+            </div>
           )}
         </nav>
         {isMobile && drawerOpen && <div className="nav-backdrop" onClick={() => setDrawerOpen(false)} aria-hidden="true" />}
 
         <main className="content">
+          <ErrorBoundary resetKey={active}>
           <Suspense fallback={<PageLoader />}>
             <div className="page-enter" key={active}>
               {active === 'ai-studio' ? (
-                <ChatStudio />
+                <ChatStudio onNavigate={go} />
               ) : active === 'bulk' ? (
                 <BulkPanel
                   onDone={(e) => run.addHistory({ id: `${Date.now()}-${Math.random()}`, time: new Date(), ...e })}
@@ -241,6 +256,7 @@ export default function App() {
               ) : null}
             </div>
           </Suspense>
+          </ErrorBoundary>
         </main>
       </div>
     </div>

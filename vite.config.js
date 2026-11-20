@@ -4,6 +4,9 @@ import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
 import { loginHandler, sessionHandler, logoutHandler, sessionFromReq, send, authConfigured } from './api/_auth.js';
 import { FASHN_ALLOW, OPENAI_ALLOW } from './api/_proxy.js';
+import { chatTurnHandler, chatEnhanceHandler } from './backend/handlers/chat.js';
+import { agentJobHandler } from './backend/handlers/job.js';
+import { photoAnalyzeHandler } from './backend/handlers/photo.js';
 
 /**
  * Dev/preview version of the Vercel functions: serves /api/login|session|logout and refuses
@@ -16,6 +19,10 @@ function devApi() {
     if (url === '/api/login') return loginHandler(req, res);
     if (url === '/api/session') return sessionHandler(req, res);
     if (url === '/api/logout') return logoutHandler(req, res);
+    if (url === '/api/chat/turn') return chatTurnHandler(req, res);
+    if (url === '/api/chat/enhance') return chatEnhanceHandler(req, res);
+    if (url === '/api/job/agent') return agentJobHandler(req, res);
+    if (url === '/api/photo/analyze') return photoAnalyzeHandler(req, res);
     const prefix = Object.keys(allowed).find((p) => url.startsWith(p));
     if (!prefix) return next();
     if (!sessionFromReq(req)) {
@@ -34,8 +41,11 @@ export default defineConfig(({ mode }) => {
   // Empty prefix => load ALL vars. They are only read here (Node side) and never
   // reach browser code, because only VITE_* variables are exposed to the client.
   const env = loadEnv(mode, process.cwd(), '');
-  // The sign-in code reads process.env (same as on Vercel).
-  for (const k of ['APP_USERS', 'SESSION_SECRET']) if (env[k] && !process.env[k]) process.env[k] = env[k];
+  // All server-side handlers (auth, chat, job) read process.env at request time.
+  // Inject every key the handlers need so devApi() works without a separate backend process.
+  for (const k of ['APP_USERS', 'SESSION_SECRET', 'FASHN_API_KEY', 'OPENAI_API_KEY']) {
+    if (env[k] && !process.env[k]) process.env[k] = env[k];
+  }
   if (!authConfigured()) {
     console.warn('[auth] APP_USERS and/or SESSION_SECRET (32+ chars) are not set in .env. Sign-in will be unavailable. See .env.example.\n');
   }
@@ -47,39 +57,53 @@ export default defineConfig(({ mode }) => {
     console.warn('[openai] OPENAI_API_KEY is not set. The "OpenAI image edit" workflow will be unavailable.\n');
   }
 
-  const proxy = {
-    '/fashn': {
-      target: 'https://api.fashn.ai',
-      changeOrigin: true,
-      secure: true,
-      rewrite: (path) => path.replace(/^\/fashn/, ''),
-      headers: { Authorization: `Bearer ${env.FASHN_API_KEY ?? ''}` },
-    },
-    // Result images live on FASHN's CDN, which does not allow direct browser downloads (CORS).
-    // These routes serve them from this app's own address so the app can save them.
-    '/cdn': {
-      target: 'https://cdn.fashn.ai',
-      changeOrigin: true,
-      secure: true,
-      rewrite: (path) => path.replace(/^\/cdn/, ''),
-    },
-    '/media': {
-      target: 'https://media.fashn.ai',
-      changeOrigin: true,
-      secure: true,
-      rewrite: (path) => path.replace(/^\/media/, ''),
-    },
-    '/openai': {
-      target: 'https://api.openai.com',
-      changeOrigin: true,
-      secure: true,
-      rewrite: (path) => path.replace(/^\/openai/, ''),
-      headers: { Authorization: `Bearer ${env.OPENAI_API_KEY ?? ''}` },
-    },
-  };
+  // When BACKEND_PORT is set, route API calls through the local Express backend
+  // (npm run server) which adds timing metrics. Otherwise proxy directly to external APIs.
+  const backendPort = env.BACKEND_PORT;
+  const backendOrigin = backendPort ? `http://localhost:${backendPort}` : null;
+
+  const proxy = backendOrigin
+    ? {
+        // All API traffic goes through the Express backend.
+        '/fashn': { target: backendOrigin, changeOrigin: false },
+        '/openai': { target: backendOrigin, changeOrigin: false },
+        '/cdn': { target: backendOrigin, changeOrigin: false },
+        '/media': { target: backendOrigin, changeOrigin: false },
+        '/api': { target: backendOrigin, changeOrigin: false },
+      }
+    : {
+        '/fashn': {
+          target: 'https://api.fashn.ai',
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/fashn/, ''),
+          headers: { Authorization: `Bearer ${env.FASHN_API_KEY ?? ''}` },
+        },
+        // Result images live on FASHN's CDN, which does not allow direct browser downloads (CORS).
+        // These routes serve them from this app's own address so the app can save them.
+        '/cdn': {
+          target: 'https://cdn.fashn.ai',
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/cdn/, ''),
+        },
+        '/media': {
+          target: 'https://media.fashn.ai',
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/media/, ''),
+        },
+        '/openai': {
+          target: 'https://api.openai.com',
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/openai/, ''),
+          headers: { Authorization: `Bearer ${env.OPENAI_API_KEY ?? ''}` },
+        },
+      };
 
   return {
-    plugins: [react(), tailwindcss(), devApi()],
+    plugins: [react(), tailwindcss(), ...(backendOrigin ? [] : [devApi()])],
     resolve: { alias: { '@': path.resolve(process.cwd(), 'src') } },
     test: {
       environment: 'jsdom',

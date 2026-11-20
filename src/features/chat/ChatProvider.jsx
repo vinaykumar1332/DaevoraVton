@@ -1,14 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
 import { useAuth } from '@/auth/context/AuthContext.jsx';
-import { chatTurn } from '@/agents/chatAgent.js';
-import { agentJob, findWorkflow } from '@/workflows/engines.js';
-import { downloadImage } from '@/api/fashn.js';
-import { friendlyError } from '@/lib/messages.js';
+import { backendChatTurn, backendStartAgentJob, backendAnalyzePhoto } from '@/api/backend.js';
+import { findWorkflow } from '@/workflows/engines.js';
+import { pollAgent, extractAgentResults, downloadImage } from '@/api/fashn.js';
+import { friendlyError, friendlyStatus } from '@/lib/messages.js';
 import { notify } from '@/lib/notify.js';
 import { listChats, saveChat, deleteChat as removeChat } from '@/lib/chatStore.js';
 import { chatReducer, initialState, newChat, uid } from './chatReducer.js'; // chatReducer also used by dispatchNow
 import { detectToolIntent, refersBack } from './intent.js';
-import { buildPrompt } from '@/agents/studioPrompt.js';
+import { shrinkDataURI } from '@/lib/imageShrink.js';
 
 /*
   AI Studio chat state lives here, above the page routes, so a running job keeps going (and its
@@ -41,6 +41,7 @@ const TOOLS = {
   },
 };
 const NEED_IMAGE = 'Send me the photo to use, or create a look first, then ask again.';
+const RESULT_RESOLUTION = '1k';
 
 /** onJobSettled: called after every chat job (success, failure or stop), e.g. to refresh the credit balance. */
 export function ChatProvider({ children, onJobSettled }) {
@@ -150,6 +151,51 @@ export function ChatProvider({ children, onJobSettled }) {
     }
   }
 
+  /** Starts a FASHN look job, polls it, and posts the result. The engine prompt is built on the server. */
+  async function runLook(chatId, { enginePrompt, prompt, images, resolution, signal }) {
+    const started = Date.now();
+    dispatch({ type: 'RUN_UPDATE', patch: { creating: true, photo: images[0] ?? null, status: 'Creating your look…' } });
+    spentRef.current = true;
+    const { jobId } = await backendStartAgentJob({ prompt: enginePrompt, images: images.slice(0, 6), resolution, generation_mode: 'balanced', signal });
+    const final = await pollAgent(jobId, {
+      signal,
+      onUpdate: (d) => dispatch({ type: 'RUN_UPDATE', patch: { status: friendlyStatus(d.status) } }),
+    });
+    const ex = extractAgentResults(final);
+    if (!ex.images.length) throw Object.assign(new Error('No image was returned'), { code: 'NoImageGenerated' });
+    dispatch({
+      type: 'APPEND',
+      chatId,
+      message: {
+        id: uid(),
+        role: 'result',
+        kind: 'look',
+        text: 'Here is your look. Want anything changed?',
+        images: ex.images,
+        prompt,
+        engine: enginePrompt,
+        resolution,
+        used: images,
+        seconds: Math.round((Date.now() - started) / 1000),
+        credits: ex.creditsUsed ?? null,
+      },
+    });
+    dispatch({ type: 'SET_LAST_RESULT', chatId, lastResult: { url: ex.images[0], prompt, resolution } });
+  }
+
+  /** Runs the same look again with the same inputs, prompt and resolution. */
+  const regenerate = useCallback(
+    (chatId, messageId) => {
+      const msg = stateRef.current.chats[chatId]?.messages.find((m) => m.id === messageId);
+      if (!msg || msg.kind !== 'look' || !msg.engine || abortRef.current) return;
+      return withRun(chatId, { creating: true, photo: msg.used?.[0] ?? null, status: 'Creating your look…' }, (signal) =>
+        runLook(chatId, { enginePrompt: msg.engine, prompt: msg.prompt, images: msg.used ?? [], resolution: msg.resolution ?? RESULT_RESOLUTION, signal })
+      );
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [withRun]
+  );
+
   /** A tool started from a button on a result (no AI call). */
   const runTool = useCallback(
     (chatId, { tool, src, ...opts }) => {
@@ -163,9 +209,9 @@ export function ChatProvider({ children, onJobSettled }) {
     [withRun]
   );
 
-  /** A message from the composer. `attached` = [{ id, src }] new photos. */
+  /** A message from the composer. `attached` = [{ id, src }] new photos. `photoMeta` = { [photoId]: analysis }. */
   const send = useCallback(
-    (chatId, text, attached = []) => {
+    (chatId, text, attached = [], photoMeta = {}, editOf = null) => {
       const chat = stateRef.current.chats[chatId];
       const clean = String(text ?? '').trim();
       if (!chat || abortRef.current || (!clean && !attached.length)) return;
@@ -195,18 +241,30 @@ export function ChatProvider({ children, onJobSettled }) {
       // 2. Everything else: the assistant decides (reply, generate, or a tool).
       //    New photos without a reference back ("her", "same model", "photo 1", …) start a fresh look:
       //    the assistant then sees ONLY those photos, and not the previous result or its prompt.
-      const fresh = attached.length > 0 && !refersBack(clean);
-      const seen = fresh ? attached : photos; // what "photo N" means in this turn
-      const base = fresh ? null : lastResult;
+      // "Change this look": only the generated image and the change text go to the engine, at its resolution.
+      const fresh = !editOf && attached.length > 0 && !refersBack(clean);
+      const seen = editOf || fresh ? attached : photos; // what "photo N" means in this turn
+      const base = editOf ?? (fresh ? null : lastResult);
 
       return withRun(chatId, { status: 'Thinking…' }, async (signal) => {
-        const turn = await chatTurn({
+        // Backend: OpenAI reads photos + history, decides the action, builds the full engine prompt.
+        // Build a photo meta map for all seen photos: merge session-accumulated meta with this turn's meta.
+        const seenMeta = seen.reduce((acc, p) => {
+          const m = photoMeta[p.id];
+          if (m && Object.keys(m).length) acc[p.id] = m;
+          return acc;
+        }, {});
+
+        const smallSeen = await Promise.all(seen.map(async (p) => ({ ...p, src: await shrinkDataURI(p.src).catch(() => p.src) })));
+        const turn = await backendChatTurn({
           history,
           userText: clean,
-          photos: seen,
+          photos: smallSeen,
           newCount: attached.length,
           lastPrompt: base?.prompt,
           hasPrevious: !!base,
+          forcePrevious: !!editOf,
+          photoMeta: Object.keys(seenMeta).length ? seenMeta : undefined,
           signal,
         });
 
@@ -221,32 +279,10 @@ export function ChatProvider({ children, onJobSettled }) {
         if (turn.action !== 'generate') return;
 
         const images = [];
-        if (turn.use_previous && base) images.push(base.url);
+        if (base && (editOf || turn.use_previous)) images.push(base.url);
         for (const n of turn.use_photos) if (seen[n - 1]) images.push(seen[n - 1].src);
 
-        // The assistant's prompt + the house rules + view rules chosen from what it saw in each photo.
-        const prompt = buildPrompt({
-          prompt: turn.prompt,
-          notes: turn.photo_notes,
-          usePhotos: turn.use_photos.filter((n) => seen[n - 1]),
-          usePrevious: !!(turn.use_previous && base),
-          outputView: turn.output_view,
-        });
-
-        const started = Date.now();
-        dispatch({ type: 'RUN_UPDATE', patch: { creating: true, photo: images[0] ?? null, status: 'Creating your look…' } });
-        spentRef.current = true;
-        const out = await agentJob(
-          { prompt, images: images.slice(0, 6), resolution: '1k', generation_mode: 'balanced' },
-          { signal, onStatus: (status) => dispatch({ type: 'RUN_UPDATE', patch: { status } }) }
-        );
-        if (!out.images.length) throw Object.assign(new Error('No image was returned'), { code: 'NoImageGenerated' });
-        dispatch({
-          type: 'APPEND',
-          chatId,
-          message: { id: uid(), role: 'result', kind: 'look', text: 'Here is your look. Want anything changed?', images: out.images, prompt: turn.prompt, used: images, seconds: Math.round((Date.now() - started) / 1000), credits: out.credits ?? null },
-        });
-        dispatch({ type: 'SET_LAST_RESULT', chatId, lastResult: { url: out.images[0], prompt: turn.prompt } });
+        await runLook(chatId, { enginePrompt: turn.enginePrompt, prompt: turn.prompt, images, resolution: base?.resolution ?? RESULT_RESOLUTION, signal });
       }, id);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -275,6 +311,7 @@ export function ChatProvider({ children, onJobSettled }) {
       send,
       runTool,
       resend,
+      regenerate,
       stop: () => abortRef.current?.abort(),
       newChat: () => {
         const current = stateRef.current.chats[stateRef.current.activeId];
@@ -290,7 +327,7 @@ export function ChatProvider({ children, onJobSettled }) {
         dispatch({ type: 'DELETE', id, fresh: newChat(owner) });
       },
     }),
-    [send, runTool, resend, owner]
+    [send, runTool, resend, regenerate, owner]
   );
 
   const value = useMemo(() => ({ state, active: state.chats[state.activeId] ?? null, run: state.run, ...actions }), [state, actions]);

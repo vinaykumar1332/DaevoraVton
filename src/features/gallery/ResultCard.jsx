@@ -11,7 +11,7 @@ const KIND_LABEL = { upscale: 'Upscaled', cutout: 'Background removed' };
  * A generated image: live preview, quick tools, the full tools overlay, and download.
  * onTool(tool, src, opts) runs a dedicated module on this image ('upscale' | 'remove_background').
  */
-export default function ResultBubble({ m, onOpen, onTool, busy = false }) {
+export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach, busy = false }) {
   const [s, setS] = useState(DEFAULT_SETTINGS);
   const [preview, setPreview] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -109,20 +109,30 @@ export default function ResultBubble({ m, onOpen, onTool, busy = false }) {
         )}
         {m.images.length > 1 && <small className="muted">Showing 1 of {m.images.length}. Download saves all of them.</small>}
 
-        {onTool && !expired && (
-          <div className="tools" role="toolbar" aria-label="Improve this image">
-            {m.kind !== 'upscale' && <Tool disabled={busy} onClick={() => onTool('upscale', src, { resolution: '4k' })} icon="⤢" label="Upscale 4K" />}
-            {m.kind !== 'cutout' && <Tool disabled={busy} onClick={() => onTool('remove_background', src, {})} icon="◌" label="Remove background" />}
-          </div>
+        {!expired && (onTool || onRegenerate || onAttach) && (
+          <section className="rb-section" aria-label="Improve this image">
+            <h6>Improve</h6>
+            <div className="tools" role="toolbar" aria-label="Improve this image">
+              {onAttach && <Tool disabled={busy} onClick={() => onAttach(src)} icon="⊕" label="Attach & edit" />}
+              {onRegenerate && m.engine && <Tool disabled={busy} onClick={onRegenerate} icon="⟳" label="Regenerate" />}
+              {onTool && m.kind !== 'upscale' && <Tool disabled={busy} onClick={() => onTool('upscale', src, { resolution: '4k' })} icon="⤢" label="Upscale 4K" />}
+              {onTool && m.kind !== 'cutout' && <Tool disabled={busy} onClick={() => onTool('remove_background', src, {})} icon="◌" label="Remove background" />}
+            </div>
+          </section>
         )}
 
-        <div className="tools" role="toolbar" aria-label="Quick tools">
-          <Tool active={s.mirror} onClick={() => setS((v) => ({ ...v, mirror: !v.mirror }))} icon="⇋" label="Mirror" />
-          <Tool onClick={() => setS((v) => ({ ...v, rotate: (v.rotate + 90) % 360 }))} icon="↻" label="Rotate" />
-          <Tool onClick={() => setEditing(true)} icon="⛶" label="All tools" />
-          <Tool disabled={!changed} onClick={() => setS(DEFAULT_SETTINGS)} icon="↺" label="Reset" />
-        </div>
+        <section className="rb-section" aria-label="Edit this image">
+          <h6>Edit</h6>
+          <div className="tools" role="toolbar" aria-label="Quick tools">
+            <Tool active={s.mirror} onClick={() => setS((v) => ({ ...v, mirror: !v.mirror }))} icon="⇋" label="Mirror" />
+            <Tool onClick={() => setS((v) => ({ ...v, rotate: (v.rotate + 90) % 360 }))} icon="↻" label="Rotate" />
+            <Tool onClick={() => setEditing(true)} icon="⛶" label="All tools" />
+            <Tool disabled={!changed} onClick={() => setS(DEFAULT_SETTINGS)} icon="↺" label="Reset" />
+          </div>
+        </section>
 
+        <section className="rb-section dl-section" aria-label="Export">
+          <h6>Export</h6>
         <div className="dl">
           <div className="seg" role="radiogroup" aria-label="File format">
             {FORMATS.map((f) => (
@@ -143,6 +153,7 @@ export default function ResultBubble({ m, onOpen, onTool, busy = false }) {
           </button>
         </div>
         <small className="muted summary">{summary || 'Original look, no changes'}</small>
+        </section>
 
         {m.used?.length > 0 && (
           <div className="used">

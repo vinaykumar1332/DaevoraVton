@@ -1,8 +1,8 @@
 // FASHN API client + image utilities.
 // All requests go to /fashn/* which the Vite dev/preview server proxies to
 // https://api.fashn.ai/* and injects the Authorization header server-side.
-
-const BASE = '/fashn';
+import { FASHN_CREDITS, FASHN_RUN, FASHN_STATUS, FASHN_AGENT_RUN, FASHN_AGENT_STATUS, CDN_ORIGINS } from './endpoints.js';
+import { fitPayload } from '@/lib/imageShrink.js';
 
 /* ------------------------------------------------------------------ */
 /* Errors                                                              */
@@ -111,10 +111,10 @@ export function toFashnError(payload, status = null) {
 /* ------------------------------------------------------------------ */
 
 export async function api(path, { method = 'GET', body, signal } = {}) {
-  const res = await fetch(BASE + path, {
+  const res = await fetch(path, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body ? JSON.stringify(await fitPayload(body)) : undefined,
     signal,
   });
   const text = await res.text();
@@ -148,7 +148,7 @@ export function sleep(ms, signal) {
 /* ------------------------------------------------------------------ */
 
 export async function getCredits(signal) {
-  const data = await api('/v1/credits', { signal });
+  const data = await api(FASHN_CREDITS, { signal });
   const c = data?.credits ?? data;
   if (typeof c === 'number') return { total: c, raw: data };
   return {
@@ -166,14 +166,14 @@ export async function getCredits(signal) {
 export async function runAgent({ prompt, images, resolution, generation_mode, aspect_ratio }, signal) {
   const body = { prompt, images: images.slice(0, 6), resolution, generation_mode };
   if (aspect_ratio) body.aspect_ratio = aspect_ratio;
-  const data = await api('/v1/agent/images/run', { method: 'POST', body, signal });
+  const data = await api(FASHN_AGENT_RUN, { method: 'POST', body, signal });
   if (!data?.id) throw toFashnError(data ?? 'No job id returned');
   return data.id;
 }
 
 export async function pollAgent(id, { signal, onUpdate, interval = 3000 } = {}) {
   for (;;) {
-    const data = await api(`/v1/agent/status/${encodeURIComponent(id)}`, { signal });
+    const data = await api(FASHN_AGENT_STATUS(id), { signal });
     onUpdate?.(data);
     if (data.status === 'completed') return data;
     if (data.status === 'failed') throw toFashnError(data.error ?? data);
@@ -209,7 +209,7 @@ export function extractAgentResults(data) {
 export async function runTryOn(inputs, signal) {
   const clean = { output_format: 'png', ...inputs };
   if (!clean.prompt) delete clean.prompt;
-  const data = await api('/v1/run', {
+  const data = await api(FASHN_RUN, {
     method: 'POST',
     body: { model_name: 'tryon-max', inputs: clean },
     signal,
@@ -221,7 +221,7 @@ export async function runTryOn(inputs, signal) {
 
 export async function pollTryOn(id, { signal, onUpdate, interval = 2000 } = {}) {
   for (;;) {
-    const data = await api(`/v1/status/${encodeURIComponent(id)}`, { signal });
+    const data = await api(FASHN_STATUS(id), { signal });
     onUpdate?.(data);
     if (data.status === 'completed') return data;
     if (data.status === 'failed' || data.status === 'canceled') {
@@ -285,8 +285,9 @@ export function isHttpUrl(s) {
 /** Download via fetch -> blob -> <a download>. Falls back to opening in a new tab if CORS blocks it. */
 /** Maps FASHN CDN links to this app's own /cdn and /media routes (see vite.config.js). */
 export function proxiedUrl(url) {
-  if (url.startsWith('https://cdn.fashn.ai/')) return '/cdn/' + url.slice('https://cdn.fashn.ai/'.length);
-  if (url.startsWith('https://media.fashn.ai/')) return '/media/' + url.slice('https://media.fashn.ai/'.length);
+  for (const { prefix, route } of CDN_ORIGINS) {
+    if (url.startsWith(prefix)) return route + url.slice(prefix.length);
+  }
   return url;
 }
 

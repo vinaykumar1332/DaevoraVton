@@ -6,17 +6,23 @@ import { __resetMemoryStore } from '@/lib/chatStore.js';
 const upscaleRun = vi.fn();
 const cutoutRun = vi.fn();
 vi.mock('@/workflows/engines.js', () => ({
-  agentJob: vi.fn(),
   findWorkflow: (id) => ({ upscale: { run: upscaleRun }, 'background-remove': { run: cutoutRun } })[id],
 }));
-vi.mock('@/agents/chatAgent.js', () => ({ chatTurn: vi.fn() }));
-vi.mock('@/api/fashn.js', () => ({ downloadImage: vi.fn(async () => true) }));
+vi.mock('@/api/backend.js', () => ({
+  backendChatTurn: vi.fn(),
+  backendStartAgentJob: vi.fn(),
+  backendEnhanceRequest: vi.fn(),
+}));
+vi.mock('@/api/fashn.js', () => ({
+  downloadImage: vi.fn(async () => true),
+  pollAgent: vi.fn(),
+  extractAgentResults: vi.fn(),
+}));
 vi.mock('@/auth/context/AuthContext.jsx', () => ({ useAuth: () => ({ user: { username: 'tester' } }) }));
 vi.mock('@/lib/notify.js', () => ({ notify: vi.fn() }));
 
-import { agentJob } from '@/workflows/engines.js';
-import { chatTurn } from '@/agents/chatAgent.js';
-import { downloadImage } from '@/api/fashn.js';
+import { backendChatTurn, backendStartAgentJob } from '@/api/backend.js';
+import { downloadImage, pollAgent, extractAgentResults } from '@/api/fashn.js';
 
 let api;
 function Probe() {
@@ -34,17 +40,23 @@ async function mount() {
 const chat = () => api.active;
 const last = () => chat().messages.at(-1);
 
+const LOOK_RESULT = { images: ['https://cdn/look.png'], creditsUsed: 2, tools: [] };
+
 beforeEach(() => {
   __resetMemoryStore();
   vi.clearAllMocks();
   upscaleRun.mockResolvedValue({ images: ['https://cdn/up.png'], credits: 4 });
   cutoutRun.mockResolvedValue({ images: ['https://cdn/cut.png'], credits: 1 });
-  agentJob.mockResolvedValue({ images: ['https://cdn/look.png'], credits: 2 });
+  backendStartAgentJob.mockResolvedValue({ jobId: 'mock-job-123' });
+  pollAgent.mockResolvedValue({ status: 'completed', predictions: [] });
+  extractAgentResults.mockReturnValue(LOOK_RESULT);
 });
+
+const BASE_TURN = { reply: 'Creating it now.', action: 'generate', generate: true, prompt: 'P', enginePrompt: 'P\n\nStudio rules: test', use_photos: [], use_previous: false, resolution: '4k', target_photo: null, photo_notes: [], output_view: 'front' };
 
 /** Generate a first look through the assistant so there is a "previous result". */
 async function makeLook() {
-  chatTurn.mockResolvedValueOnce({ reply: 'Creating it now.', action: 'generate', generate: true, prompt: 'P', use_photos: [], use_previous: false, resolution: '4k', target_photo: null });
+  backendChatTurn.mockResolvedValueOnce(BASE_TURN);
   await act(() => api.send(chat().id, 'a model in a red dress'));
   expect(last().kind).toBe('look');
 }
@@ -58,8 +70,8 @@ describe('AI Studio chat', () => {
 
     await act(() => api.send(chat().id, 'upscale to 4k'));
 
-    expect(chatTurn).not.toHaveBeenCalled();
-    expect(agentJob).not.toHaveBeenCalled();
+    expect(backendChatTurn).not.toHaveBeenCalled();
+    expect(backendStartAgentJob).not.toHaveBeenCalled();
     expect(upscaleRun).toHaveBeenCalledTimes(1);
     expect(upscaleRun.mock.calls[0][0]).toEqual({ image: { src: 'https://cdn/look.png' }, resolution: '4k', generation_mode: 'quality' });
     expect(last()).toMatchObject({ role: 'result', kind: 'upscale', images: ['https://cdn/up.png'], credits: 4 });
@@ -92,40 +104,43 @@ describe('AI Studio chat', () => {
 
   it('follows the assistant when it decides on a tool, with the photo it picked', async () => {
     await mount();
-    chatTurn.mockResolvedValueOnce({ reply: 'Sure, removing it.', action: 'remove_background', generate: false, prompt: '', use_photos: [], use_previous: false, resolution: '4k', target_photo: 1 });
+    backendChatTurn.mockResolvedValueOnce({ reply: 'Sure, removing it.', action: 'remove_background', generate: false, prompt: '', use_photos: [], use_previous: false, resolution: '4k', target_photo: 1, enginePrompt: '' });
     await act(() => api.send(chat().id, 'the colours are great, could you get rid of what is behind her?', [{ id: 'p1', src: 'data:x' }]));
     expect(cutoutRun).toHaveBeenCalledWith({ image: { src: 'data:x' } }, expect.anything());
-    expect(agentJob).not.toHaveBeenCalled();
+    expect(backendStartAgentJob).not.toHaveBeenCalled();
     expect(last()).toMatchObject({ kind: 'cutout' });
   });
 
   it('new photos start a fresh look: the old saree look and its prompt are not used for a man in a shirt', async () => {
     await mount();
     // turn 1: saree look from a woman + saree photo
-    chatTurn.mockResolvedValueOnce({ reply: 'Creating it.', action: 'generate', generate: true, prompt: 'Woman in image 1 wears the saree from image 2', use_photos: [1, 2], use_previous: false });
+    backendChatTurn.mockResolvedValueOnce({ reply: 'Creating it.', action: 'generate', generate: true, prompt: 'Woman in image 1 wears the saree from image 2', enginePrompt: 'Woman in image 1 wears the saree from image 2', use_photos: [1, 2], use_previous: false, resolution: '4k', target_photo: null, photo_notes: [], output_view: 'front' });
     await act(() => api.send(chat().id, 'dress her in this saree', [{ id: 'w', src: 'data:woman' }, { id: 's', src: 'data:saree' }]));
     expect(chat().lastResult.url).toBe('https://cdn/look.png');
 
     // turn 2: a man + a shirt, no reference back
-    chatTurn.mockResolvedValueOnce({ reply: 'Creating it.', action: 'generate', generate: true, prompt: 'Man in image 1 wears the shirt from image 2', use_photos: [1, 2], use_previous: true });
+    backendChatTurn.mockResolvedValueOnce({ reply: 'Creating it.', action: 'generate', generate: true, prompt: 'Man in image 1 wears the shirt from image 2', enginePrompt: 'Man in image 1 wears the shirt from image 2', use_photos: [1, 2], use_previous: true, resolution: '4k', target_photo: null, photo_notes: [], output_view: 'front' });
     await act(() => api.send(chat().id, 'dress this man in this shirt', [{ id: 'm', src: 'data:man' }, { id: 't', src: 'data:shirt' }]));
 
-    const args = chatTurn.mock.calls.at(-1)[0];
+    const args = backendChatTurn.mock.calls.at(-1)[0];
     expect(args.photos.map((p) => p.src)).toEqual(['data:man', 'data:shirt']); // only the new photos
     expect(args.hasPrevious).toBe(false);
     expect(args.lastPrompt).toBeUndefined(); // the saree prompt is not shown to the assistant
-    expect(agentJob.mock.calls.at(-1)[0].images).toEqual(['data:man', 'data:shirt']); // no saree, no old result
+    expect(backendStartAgentJob.mock.calls.at(-1)[0].images).toEqual(['data:man', 'data:shirt']); // no saree, no old result
   });
 
   it('adds the house rules and the back-view rule to the prompt sent to the engine', async () => {
     await mount();
-    chatTurn.mockResolvedValueOnce({
+    backendChatTurn.mockResolvedValueOnce({
       reply: 'Creating it now.',
       action: 'generate',
       generate: true,
       prompt: 'The woman in image 1 wears the saree from image 2.',
+      enginePrompt: 'The woman in image 1 wears the saree from image 2.\n\nshow only the front\n\nStudio rules: test',
       use_photos: [1, 2],
       use_previous: false,
+      resolution: '4k',
+      target_photo: null,
       photo_notes: [
         { photo: 1, role: 'model', view: 'back' },
         { photo: 2, role: 'garment', view: 'front' },
@@ -134,7 +149,7 @@ describe('AI Studio chat', () => {
     });
     await act(() => api.send(chat().id, 'dress her in this saree', [{ id: 'w', src: 'data:woman-back' }, { id: 's', src: 'data:saree-front' }]));
 
-    const sent = agentJob.mock.calls.at(-1)[0].prompt;
+    const sent = backendStartAgentJob.mock.calls.at(-1)[0].prompt;
     expect(sent.startsWith('The woman in image 1 wears the saree from image 2.')).toBe(true);
     expect(sent).toMatch(/show only the front/);
     expect(sent).toMatch(/Studio rules:/);
@@ -151,7 +166,7 @@ describe('AI Studio chat', () => {
     );
     await waitFor(() => expect(api.state.loaded).toBe(true));
 
-    chatTurn.mockResolvedValueOnce({ reply: 'Which garment?', action: 'reply', generate: false, prompt: '', use_photos: [], use_previous: false });
+    backendChatTurn.mockResolvedValueOnce({ reply: 'Which garment?', action: 'reply', generate: false, prompt: '', enginePrompt: '', use_photos: [], use_previous: false, resolution: '4k', target_photo: null, photo_notes: [], output_view: 'front' });
     await act(() => api.send(chat().id, 'hello'));
     expect(onJobSettled).not.toHaveBeenCalled(); // no FASHN call, no credits used
 
@@ -165,17 +180,54 @@ describe('AI Studio chat', () => {
 
   it('a message that refers back keeps the earlier photos and the previous result available', async () => {
     await mount();
-    chatTurn.mockResolvedValueOnce({ reply: 'ok', action: 'generate', generate: true, prompt: 'P1', use_photos: [1, 2], use_previous: false });
+    backendChatTurn.mockResolvedValueOnce({ reply: 'ok', action: 'generate', generate: true, prompt: 'P1', enginePrompt: 'P1', use_photos: [1, 2], use_previous: false, resolution: '4k', target_photo: null, photo_notes: [], output_view: 'front' });
     await act(() => api.send(chat().id, 'dress her in this saree', [{ id: 'w', src: 'data:woman' }, { id: 's', src: 'data:saree' }]));
 
-    chatTurn.mockResolvedValueOnce({ reply: 'ok', action: 'generate', generate: true, prompt: 'P2', use_photos: [1, 3], use_previous: false });
+    backendChatTurn.mockResolvedValueOnce({ reply: 'ok', action: 'generate', generate: true, prompt: 'P2', enginePrompt: 'P2', use_photos: [1, 3], use_previous: false, resolution: '4k', target_photo: null, photo_notes: [], output_view: 'front' });
     await act(() => api.send(chat().id, 'now put this shirt on her instead', [{ id: 't', src: 'data:shirt' }]));
 
-    const args = chatTurn.mock.calls.at(-1)[0];
+    const args = backendChatTurn.mock.calls.at(-1)[0];
     expect(args.photos.map((p) => p.src)).toEqual(['data:woman', 'data:saree', 'data:shirt']);
     expect(args.hasPrevious).toBe(true);
     expect(args.lastPrompt).toBe('P1');
-    expect(agentJob.mock.calls.at(-1)[0].images).toEqual(['data:woman', 'data:shirt']);
+    expect(backendStartAgentJob.mock.calls.at(-1)[0].images).toEqual(['data:woman', 'data:shirt']);
+  });
+
+  it('a change to the last look sends that image and its resolution, with no other photos', async () => {
+    await mount();
+    await makeLook();
+    backendChatTurn.mockResolvedValueOnce({ ...BASE_TURN, reply: 'ok', prompt: 'P2', enginePrompt: 'P2', use_previous: true });
+    await act(() => api.send(chat().id, 'make the dress red', [], {}, chat().lastResult));
+
+    const args = backendChatTurn.mock.calls.at(-1)[0];
+    expect(args).toMatchObject({ forcePrevious: true, hasPrevious: true, lastPrompt: 'P', photos: [] });
+    expect(backendStartAgentJob.mock.calls.at(-1)[0]).toMatchObject({ images: ['https://cdn/look.png'], resolution: '1k' });
+  });
+
+  it('photos attached after a look are added to that look, not a new one', async () => {
+    await mount();
+    await makeLook();
+    backendChatTurn.mockResolvedValueOnce({ ...BASE_TURN, reply: 'ok', prompt: 'P2', enginePrompt: 'P2', use_photos: [1], use_previous: true });
+    await act(() => api.send(chat().id, 'add this belt', [{ id: 'b', src: 'data:belt' }], {}, chat().lastResult));
+
+    const args = backendChatTurn.mock.calls.at(-1)[0];
+    expect(args).toMatchObject({ forcePrevious: true, newCount: 1 });
+    expect(args.photos.map((p) => p.src)).toEqual(['data:belt']);
+    expect(backendStartAgentJob.mock.calls.at(-1)[0].images).toEqual(['https://cdn/look.png', 'data:belt']);
+  });
+
+  it('Regenerate runs the same look again with the same inputs, prompt and resolution', async () => {
+    await mount();
+    backendChatTurn.mockResolvedValueOnce({ ...BASE_TURN, use_photos: [1] });
+    await act(() => api.send(chat().id, 'a red dress', [{ id: 'w', src: 'data:w' }]));
+    const look = last();
+    backendStartAgentJob.mockClear();
+
+    await act(() => api.regenerate(chat().id, look.id));
+
+    expect(backendStartAgentJob).toHaveBeenCalledTimes(1);
+    expect(backendStartAgentJob.mock.calls[0][0]).toMatchObject({ prompt: BASE_TURN.enginePrompt, images: ['data:w'], resolution: '1k' });
+    expect(last()).toMatchObject({ kind: 'look', prompt: 'P' });
   });
 
   it('the Upscale button on a result runs the Upscale module on that image', async () => {

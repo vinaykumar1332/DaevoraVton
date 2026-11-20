@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { AUTH_LOGIN, AUTH_SESSION, AUTH_LOGOUT } from '@/api/endpoints.js';
 
 // Sign-in is checked on the server (api/login.js). The browser only holds an HttpOnly cookie it
 // cannot read, so there are no passwords in the JavaScript and nothing to forge in sessionStorage.
@@ -25,7 +26,7 @@ export function AuthProvider({ children }) {
   // Restore the session after a page load or refresh.
   useEffect(() => {
     let alive = true;
-    fetch('/api/session', { credentials: 'same-origin' })
+    fetch(AUTH_SESSION, { credentials: 'same-origin' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => alive && setUser(d?.user ?? null))
       .catch(() => alive && setUser(null))
@@ -55,7 +56,7 @@ export function AuthProvider({ children }) {
     setLoading(true);
     setError('');
     try {
-      const { res, data } = await postJson('/api/login', { username: username.trim(), password });
+      const { res, data } = await postJson(AUTH_LOGIN, { username: username.trim(), password });
       if (res.ok && data?.user) {
         setUser(data.user);
         return true;
@@ -74,7 +75,7 @@ export function AuthProvider({ children }) {
     setUser(null);
     setError('');
     try {
-      await postJson('/api/logout');
+      await postJson(AUTH_LOGOUT);
     } catch {
       /* the cookie expires on its own */
     }

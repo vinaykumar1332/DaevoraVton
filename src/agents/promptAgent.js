@@ -1,6 +1,7 @@
 // AI prompt agent: OpenAI vision model reads the garment (and model) images and writes
 // the prompt that FASHN's Agent renders. Also used to revise a prompt from a change request.
 import { FashnError } from '@/api/fashn.js';
+import { OPENAI_CHAT } from '@/api/endpoints.js';
 
 const SYSTEM = `You write prompts for a fashion image engine that dresses a model in a garment.
 You receive labelled images. Refer to them ONLY by their numbers ("image 1", "image 2", ...) exactly as listed.
@@ -23,7 +24,7 @@ export async function writePrompt({ labels, images, instruction = '', change = '
     ...images.map((url) => ({ type: 'image_url', image_url: { url, detail: 'high' } })),
   ];
 
-  const res = await fetch('/openai/v1/chat/completions', {
+  const res = await fetch(OPENAI_CHAT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
