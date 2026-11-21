@@ -1,0 +1,53 @@
+/* Design tokens: the only place raw colours, radii, spacing, type and motion values are defined.
+   Components and stylesheets read these with var(--ds-*). Values match the current palette, so changing
+   one here restyles the whole app (e.g. --ds-accent for a brand colour change). */
+
+:root {
+  /* colour: three families (ink, paper/white, accent) */
+  --ds-ink: #0e1a2b;
+  --ds-ink-2: #4a586b;
+  --ds-paper: #e6eaee;
+  --ds-surface: #f7f9fa;
+  --ds-white: #ffffff;
+  --ds-line: #cfd6dd;
+  --ds-accent: #1f4fff;
+  --ds-accent-ink: #0d2fb8;
+  --ds-accent-wash: #e4ebff;
+  --ds-danger: #dc2626;
+
+  /* shape */
+  --ds-radius: 6px;
+  --ds-shadow-sm: 0 1px 2px rgba(14, 26, 43, 0.06);
+  --ds-shadow-md: 0 8px 24px rgba(14, 26, 43, 0.12);
+  --ds-focus: 0 0 0 3px rgba(31, 79, 255, 0.28);
+
+  /* spacing scale (rem, so it follows the user's text size) */
+  --ds-space-1: 0.25rem;
+  --ds-space-2: 0.5rem;
+  --ds-space-3: 0.75rem;
+  --ds-space-4: 1rem;
+  --ds-space-6: 1.5rem;
+  --ds-space-8: 2rem;
+
+  /* type scale: rem for body text, clamp() for headings so they scale with the screen */
+  --ds-text-xs: 0.8125rem;
+  --ds-text-sm: 0.875rem;
+  --ds-text-base: 0.9375rem;
+  --ds-text-lg: 1.125rem;
+  --ds-text-xl: clamp(1.25rem, 1.1rem + 0.6vw, 1.75rem);
+  --ds-text-2xl: clamp(1.6rem, 1.2rem + 1.6vw, 2.5rem);
+
+  /* controls */
+  --ds-control-h: 2.25rem;
+  --ds-control-h-lg: 2.75rem;
+
+  /* layout: fluid gutters; content caps at 120rem so very wide (8K) screens stay readable */
+  --ds-gutter: clamp(1rem, 0.6rem + 1.6vw, 3rem);
+  --ds-content-max: 120rem;
+
+  /* motion */
+  --ds-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ds-dur-fast: 150ms;
+  --ds-dur: 220ms;
+  --ds-dur-slow: 360ms;
+}

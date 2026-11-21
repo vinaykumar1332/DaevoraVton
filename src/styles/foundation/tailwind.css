@@ -6,30 +6,30 @@
 /* shadcn/ui theme, mapped to the app's existing palette (see studio.css):
    ink #0e1a2b, marker blue #1f4fff, chalk pink #ff7aa8, paper #e6eaee, panel #f7f9fa, line #cfd6dd. */
 :root {
-  --radius: 6px;
-  --background: #e6eaee;
-  --foreground: #0e1a2b;
-  --card: #f7f9fa;
-  --card-foreground: #0e1a2b;
-  --popover: #ffffff;
-  --popover-foreground: #0e1a2b;
-  --primary: #0e1a2b;
-  --primary-foreground: #ffffff;
-  --secondary: #e4ebff;
-  --secondary-foreground: #0d2fb8;
+  --radius: var(--ds-radius);
+  --background: var(--ds-paper);
+  --foreground: var(--ds-ink);
+  --card: var(--ds-surface);
+  --card-foreground: var(--ds-ink);
+  --popover: var(--ds-white);
+  --popover-foreground: var(--ds-ink);
+  --primary: var(--ds-ink);
+  --primary-foreground: var(--ds-white);
+  --secondary: var(--ds-accent-wash);
+  --secondary-foreground: var(--ds-accent-ink);
   --muted: #eef1f4;
-  --muted-foreground: #4a586b;
-  --accent: #e4ebff;
-  --accent-foreground: #0d2fb8;
-  --destructive: #dc2626;
-  --border: #cfd6dd;
-  --input: #cfd6dd;
-  --ring: #1f4fff;
-  --chart-1: #1f4fff;
-  --chart-2: #1f4fff;
-  --chart-3: #0e1a2b;
-  --chart-4: #4a586b;
-  --chart-5: #0d2fb8;
+  --muted-foreground: var(--ds-ink-2);
+  --accent: var(--ds-accent-wash);
+  --accent-foreground: var(--ds-accent-ink);
+  --destructive: var(--ds-danger);
+  --border: var(--ds-line);
+  --input: var(--ds-line);
+  --ring: var(--ds-accent);
+  --chart-1: var(--ds-accent);
+  --chart-2: var(--ds-accent);
+  --chart-3: var(--ds-ink);
+  --chart-4: var(--ds-ink-2);
+  --chart-5: var(--ds-accent-ink);
 }
 
 @theme inline {

@@ -25,6 +25,7 @@ function mockServer({ session = null, login } = {}) {
 }
 
 function setup() {
+  window.history.replaceState(null, '', '/ai-studio');
   render(
     <AuthProvider>
       <AuthGate>

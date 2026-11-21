@@ -142,7 +142,7 @@ export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach
             <span>Made from</span>
             {m.used.map((u, i) => (
               <button key={u + i} type="button" className="in-thumb" onClick={() => onOpen(m.used, i)} aria-label={`Open input ${i + 1} full screen`}>
-                <img src={u} alt={`Input ${i + 1}`} />
+                <img src={u} alt={`Input ${i + 1}`} loading="lazy" decoding="async" />
               </button>
             ))}
           </div>

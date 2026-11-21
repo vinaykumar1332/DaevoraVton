@@ -13,6 +13,7 @@ const ERRORS = {
   InputValidationError: ['Check your photos', 'A photo has an unsupported size or format. Try a different one.'],
   ContentModerationError: ['Blocked by content rules', 'Change the photos or wording and try again.'],
   ServiceUnavailable: ['Service unavailable', 'Try again in a moment.'],
+  NetworkError: ['No connection', 'Check your internet connection and try again.'],
   AgentTimeout: ['Took too long', 'Try again, or choose a faster quality setting.'],
   NotFound: ['No longer available', 'That result has expired. Create it again.'],
   PipelineError: ['Could not finish the image', 'Try again, or change the photos.'],

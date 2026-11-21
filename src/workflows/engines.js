@@ -610,7 +610,8 @@ export const WORKFLOWS = [
         {
           prompt:
             `Upscale this image to ${v.resolution} resolution. This is an upscale only: do not redraw, restyle, re-pose, re-light or re-crop anything. ` +
-            'Keep the face, identity, pose, garment, colours, background and composition exactly as they are. ' +
+            'The person must stay the same person: the face, skin tone, facial features, hair, body shape and expression must match the input exactly, with no new or altered facial features. ' +
+            'Keep the garment, colours, background and composition exactly as they are. ' +
             'Only add real fine detail (fabric weave, embroidery, zari, hair, skin texture) and remove blur and compression artefacts. Do not add or remove any element.',
           images: [srcOf(v.image)],
           resolution: v.resolution,

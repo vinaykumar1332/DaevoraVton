@@ -162,6 +162,8 @@ export function buildPrompt({ prompt, notes = [], usePhotos = [], usePrevious = 
   if (pose === 'change') rules.push('Change the pose as the user asked, keeping the same person, proportions, face and clothing.');
   else if (pose === 'reference' && poseRefs.length) {
     rules.push(`Match the body pose of ${list(poseRefs)} (the pose reference), keeping the same person, face, proportions and clothing.`);
+  } else if (models.length) {
+    rules.push('Keep the pose of the person exactly as in the model photo: the same body position, arms, hands and head angle.');
   }
   if (model === 'change' && models.length) {
     const newModel = models[models.length - 1].image;

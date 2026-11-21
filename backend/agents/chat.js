@@ -38,7 +38,7 @@ Your job:
    - "tuck": "in" only when the user asks to tuck the top into the trousers; "out" when they say on top of the pants, not inside, untucked or outside. Tops are untucked by default.
    - "sleeves": "rolled" or "down".
    - "fit": "loose" or "fitted".
-   - "pose": "change" when the user asks for a new pose in words; "reference" when they send a pose photo; otherwise null.
+   - "pose": "change" ONLY when the user explicitly asks to change, move or re-pose the person (for example "make her turn", "have him sit", "change the pose"). Describing the pose they want, such as "full-body pose", "standing" or "in a pose", is NOT a change request: use null, so the model photo's pose is kept. "reference" when they send a pose photo; otherwise null.
    - "model": "change" only when they ask to swap the person for another model photo they sent.
    - "add": short names of objects to add to the look (for example "a watch", "sunglasses"), up to 5.
    - "remove": short names of things to remove from the image, up to 5.

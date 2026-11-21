@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"^\\(postcss|playwright\\)$\")",
+      "Bash(node -e \"console.log\\(require\\('postcss/package.json'\\).version\\)\")",
+      "Bash(npm i *)",
+      "Bash(npx playwright *)",
+      "Bash(node snap.mjs \"C:/Users/Admin/AppData/Local/Temp/claude/51360a5ebe39b025/199689a1-1552-44d9-811b-a82f4175a1a3/scratchpad/base\")",
+      "Bash(node \"C:/Users/Admin/AppData/Local/Temp/claude/51360a5ebe39b025/199689a1-1552-44d9-811b-a82f4175a1a3/scratchpad/dedupe.mjs\" src/styles/theme/studio.css)",
+      "Bash(node \"C:/Users/Admin/AppData/Local/Temp/claude/51360a5ebe39b025/199689a1-1552-44d9-811b-a82f4175a1a3/scratchpad/dedupe.mjs\" src/styles/legacy/ui.css)",
+      "Bash(node \"C:/Users/Admin/AppData/Local/Temp/claude/51360a5ebe39b025/199689a1-1552-44d9-811b-a82f4175a1a3/scratchpad/dedupe.mjs\" src/styles/legacy/styles.css)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 4173 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; \"stopped\")"
+    ]
+  }
+}
