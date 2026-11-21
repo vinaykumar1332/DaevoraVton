@@ -17,17 +17,19 @@ import { friendlyError } from '@/lib/messages.js';
 import PageLoader from '@/components/common/PageLoader.jsx';
 import ErrorBoundary from '@/components/common/ErrorBoundary.jsx';
 
-// Every page has its own URL path: /<id>. 'ai-studio' and the form workflows come from NAV_IDS.
-const ROUTE_IDS = [...NAV_IDS, 'bulk'];
+// Pages that are live in the UI. The others are hidden and their URLs fall back to AI Studio.
+// Their code stays in place: add an id here to bring a page back.
+const LIVE_PAGES = ['ai-studio'];
+const ROUTE_IDS = LIVE_PAGES;
 
-// Sidebar groups: the workflow groups from engines.js, plus Batch.
+// Sidebar: every page is listed, grouped as in engines.js; pages that are not live yet are shown disabled.
 const NAV = [
   ...NAV_GROUPS.map((g) => ({
     g,
     items: WORKFLOWS.filter((w) => w.group === g && NAV_IDS.includes(w.id)).map((w) => ({ id: w.id, label: w.label, hint: w.short, icon: <WfIcon name={w.icon} /> })),
   })),
   { g: 'Batch', items: [{ id: 'bulk', label: 'Bulk grid', hint: 'Models × garments', icon: <Table2 aria-hidden="true" /> }] },
-];
+].filter((section) => section.items.length > 0);
 
 const Workspace = lazy(() => import('@/features/workspace/Workspace.jsx'));
 const ChatStudio = lazy(() => import('@/features/chat/ChatStudio.jsx'));
@@ -171,20 +173,26 @@ export default function App() {
           {NAV.map(({ g, items }) => (
             <div className="nav-group" key={g}>
               <div className="nav-title"><span>{g}</span></div>
-              {items.map((it) => (
+              {items.map((it) => {
+                const live = LIVE_PAGES.includes(it.id);
+                return (
                 <button
                   key={it.id}
                   type="button"
-                  className={`nav-item ${active === it.id ? 'on' : ''}`}
+                  className={`nav-item ${active === it.id ? 'on' : ''} ${live ? '' : 'soon'}`}
                   aria-current={active === it.id ? 'page' : undefined}
-                  data-tip={it.label}
-                  title={railCollapsed ? undefined : it.hint}
-                  onClick={() => go(it.id)}
+                  aria-disabled={live ? undefined : true}
+                  disabled={!live}
+                  data-tip={live ? it.label : `${it.label} · Coming soon`}
+                  title={railCollapsed || !live ? undefined : it.hint}
+                  onClick={() => live && go(it.id)}
                 >
                   {it.icon}
                   <span className="nav-label">{it.label}</span>
+                  {!live && <span className="nav-soon-tag">Soon</span>}
                 </button>
-              ))}
+                );
+              })}
             </div>
           ))}
 

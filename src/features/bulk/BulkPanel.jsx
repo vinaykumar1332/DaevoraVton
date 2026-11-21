@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState } from 'react';
+﻿import { Fragment, useRef, useState } from 'react';
 import { Download, Loader2, Square, Table2, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button.jsx';
 import { Progress } from '@/components/ui/progress.jsx';
@@ -87,7 +87,7 @@ export default function BulkPanel({ onDone, onRunsChanged }) {
 
   async function downloadAll() {
     for (let i = 0; i < doneCells.length; i++) {
-      await downloadImage(doneCells[i].images[0], `fashn-bulk-${i + 1}.png`);
+      await downloadImage(doneCells[i].images[0], `bulk-${i + 1}.png`);
       await new Promise((r) => setTimeout(r, 400));
     }
   }

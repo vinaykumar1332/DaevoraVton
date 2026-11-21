@@ -11,7 +11,7 @@ const nav = () => screen.getByRole('navigation', { name: 'Workflows' });
 
 beforeEach(() => {
   localStorage.clear();
-  window.history.replaceState(null, '', '/upscale');
+  window.history.replaceState(null, '', '/ai-studio');
 });
 
 describe('sidebar', () => {
@@ -25,7 +25,7 @@ describe('sidebar', () => {
     expect(body()).toHaveClass('sb-collapsed');
     expect(nav()).toHaveAttribute('data-collapsed', 'true');
     // labels stay in the page for screen readers and as hover tips
-    expect(screen.getByRole('button', { name: /upscale/i, current: 'page' })).toHaveAttribute('data-tip', 'Upscale');
+    expect(screen.getByRole('button', { name: /ai studio/i, current: 'page' })).toHaveAttribute('data-tip', 'AI Studio');
     expect(JSON.parse(localStorage.getItem('fr.sidebarCollapsed'))).toBe(true);
 
     unmount();
@@ -45,11 +45,19 @@ describe('sidebar', () => {
     expect(body()).not.toHaveClass('sb-collapsed');
   });
 
-  it('navigates from the sidebar and marks the current page', async () => {
+  it('lists every page, but only AI Studio is clickable', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: /remove background/i }));
-    expect(window.location.pathname).toBe('/background-remove');
-    expect(screen.getByRole('button', { name: /remove background/i })).toHaveAttribute('aria-current', 'page');
+    const remove = screen.getByRole('button', { name: /remove background/i });
+    expect(remove).toBeDisabled();
+    await user.click(remove);
+    expect(window.location.pathname).toBe('/ai-studio');
+    expect(screen.getByRole('button', { name: /ai studio/i })).not.toBeDisabled();
+  });
+
+  it('sends a hidden page URL back to AI Studio', () => {
+    window.history.replaceState(null, '', '/background-remove');
+    render(<App />);
+    expect(window.location.pathname).toBe('/ai-studio');
   });
 });

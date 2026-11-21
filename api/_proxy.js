@@ -25,6 +25,18 @@ export const OPENAI_ALLOW = [
   { method: 'POST', re: /^v1\/images\/edits$/ },
 ];
 
+/**
+ * Upstream errors can name the provider and echo its internals. The browser gets only the status and a
+ * generic code (the app maps those codes to friendly text), so no provider name leaves the server.
+ */
+async function sendUpstreamError(res, upstream) {
+  const raw = await upstream.json().catch(() => null);
+  const e = raw?.error ?? raw ?? {};
+  const name = typeof e === 'string' ? e : e.name || e.code || e.type || '';
+  const safe = /^[A-Za-z]{3,40}$/.test(name) && !/openai|fashn/i.test(name) ? name : `Upstream${upstream.status}`;
+  return send(res, upstream.status, { error: { name: safe, message: 'The request could not be completed. Try again.' } });
+}
+
 async function readBody(req) {
   const chunks = [];
   let size = 0;
@@ -80,10 +92,11 @@ export function makeProxy({ origin, keyName, allow }) {
         }
       }
       const upstream = await fetch(url, { method: req.method, headers, body });
+      res.setHeader('Cache-Control', 'no-store');
+      if (!upstream.ok) return sendUpstreamError(res, upstream);
       res.statusCode = upstream.status;
       const type = upstream.headers.get('content-type');
       if (type) res.setHeader('Content-Type', type);
-      res.setHeader('Cache-Control', 'no-store');
       res.end(Buffer.from(await upstream.arrayBuffer()));
     } catch (e) {
       if (e.status === 413) return send(res, 413, { error: { name: 'PayloadTooLarge', message: 'The photos are too large to send together.' } });

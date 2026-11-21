@@ -2,6 +2,7 @@
 // Called immediately on upload so the chat turn already knows what each photo contains.
 import { send } from '../../api/_auth.js';
 import { requireUser } from '../guard.js';
+import { upstreamCode } from '../agents/chat.js';
 
 const MAX_BODY = 20 * 1024 * 1024;
 
@@ -25,6 +26,11 @@ Fields:
 - fabric: fabric if visible, e.g. "silk", "denim", "cotton" — omit if unclear
 - view: "front" | "back" | "side" | "three-quarter" | "flat-lay" | "unknown"
 - worn: true if garment is on a person, false if flat-lay / hanger / packaged — only for garments
+- logo: true if a logo, print or text is visible on the garment — only for garments
+- pattern: the print or pattern, its scale and arrangement, e.g. "small navy florals on white, all-over" — only for garments
+- details: embroidery, borders, buttons, zips, stitching or trims that are visible — only for garments
+- logo_text: the exact text or logo name, only if readable — only for garments
+- unclear: what you cannot see (e.g. "back not visible") — only for garments
 - length: "upper" (top/shirt/jacket) | "lower" (trousers/skirt) | "full" (dress/saree/gown) — only for garments
 - framing: "full" (head to feet visible) | "partial" — only for model photos
 - notes: one short sentence of anything important not captured above (optional)
@@ -77,8 +83,7 @@ export async function photoAnalyzeHandler(req, res) {
 
     const data = await upstream.json().catch(() => null);
     if (!upstream.ok) {
-      const e = data?.error ?? {};
-      return send(res, upstream.status, { error: { name: e.code || `OpenAI${upstream.status}`, message: e.message || 'Analysis failed.' } });
+      return send(res, upstream.status, { error: { name: upstreamCode(upstream.status), message: 'Analysis failed. Try again.' } });
     }
 
     let analysis = {};

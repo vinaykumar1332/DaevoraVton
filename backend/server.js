@@ -71,14 +71,14 @@ app.get('/api/metrics', (_req, res) => {
 });
 
 // --- FASHN proxy with timing ---
-app.all('/fashn/*', async (req, res) => {
+app.all('/api/render/*', async (req, res) => {
   if (!sessionFromReq(req)) {
     return send(res, 401, { error: { name: 'SessionExpired', message: 'Please sign in again.' } }, { 'X-Session-Expired': '1' });
   }
   const key = process.env.FASHN_API_KEY;
   if (!key) return send(res, 500, { error: { name: 'UnauthorizedAccess', message: 'FASHN_API_KEY is not set.' } });
 
-  const subPath = req.path.startsWith('/fashn/') ? req.path.slice(7) : '';
+  const subPath = req.path.startsWith('/api/render/') ? req.path.slice('/api/render/'.length) : '';
   if (!FASHN_ALLOW.some((a) => a.method === req.method && a.re.test(subPath))) {
     return send(res, 403, { error: { name: 'Forbidden', message: 'This endpoint is not available.' } });
   }
@@ -129,14 +129,14 @@ app.all('/fashn/*', async (req, res) => {
 });
 
 // --- OpenAI proxy with timing ---
-app.all('/openai/*', async (req, res) => {
+app.all('/api/assist/*', async (req, res) => {
   if (!sessionFromReq(req)) {
     return send(res, 401, { error: { name: 'SessionExpired', message: 'Please sign in again.' } }, { 'X-Session-Expired': '1' });
   }
   const key = process.env.OPENAI_API_KEY;
   if (!key) return send(res, 500, { error: { name: 'UnauthorizedAccess', message: 'OPENAI_API_KEY is not set.' } });
 
-  const subPath = req.path.startsWith('/openai/') ? req.path.slice(8) : '';
+  const subPath = req.path.startsWith('/api/assist/') ? req.path.slice('/api/assist/'.length) : '';
   if (!OPENAI_ALLOW.some((a) => a.method === req.method && a.re.test(subPath))) {
     return send(res, 403, { error: { name: 'Forbidden', message: 'This endpoint is not available.' } });
   }

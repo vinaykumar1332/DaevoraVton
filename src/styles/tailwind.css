@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+﻿@import 'tailwindcss';
 @import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
@@ -6,7 +6,7 @@
 /* shadcn/ui theme, mapped to the app's existing palette (see studio.css):
    ink #0e1a2b, marker blue #1f4fff, chalk pink #ff7aa8, paper #e6eaee, panel #f7f9fa, line #cfd6dd. */
 :root {
-  --radius: 0.75rem;
+  --radius: 6px;
   --background: #e6eaee;
   --foreground: #0e1a2b;
   --card: #f7f9fa;
@@ -26,7 +26,7 @@
   --input: #cfd6dd;
   --ring: #1f4fff;
   --chart-1: #1f4fff;
-  --chart-2: #ff7aa8;
+  --chart-2: #1f4fff;
   --chart-3: #0e1a2b;
   --chart-4: #4a586b;
   --chart-5: #0d2fb8;

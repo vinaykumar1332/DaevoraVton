@@ -1,4 +1,4 @@
-// Workflow registry + run logic for every engine (FASHN /v1/run, FASHN Agent, OpenAI).
+﻿// Workflow registry + run logic for every engine (FASHN /v1/run, FASHN Agent, OpenAI).
 // Each workflow declares its form fields, how to run, and an estimated credit cost.
 import {
   OUTFIT_MODES, ETHNIC_TYPES, SAREE_DRAPES, DUPATTA_STYLES, ETHNIC_SETTINGS, WITH_DUPATTA,
@@ -287,7 +287,7 @@ export const WORKFLOWS = [
     label: 'Outfit Studio',
     short: 'Product, flat lay or Indian wear → on a model',
     icon: 'User',
-    engine: 'FASHN Agent',
+    engine: 'Agent',
     blurb: 'Pick a workflow on the left, upload the model and the garments, then generate.',
     modes: OUTFIT_MODES,
     steps: ['Pick a workflow', 'Upload the model and garments', 'Choose style options and a background', 'Generate'],
@@ -387,7 +387,7 @@ export const WORKFLOWS = [
     label: 'Try-On Max',
     short: 'Best quality · garments, shoes, bags',
     icon: 'User',
-    engine: 'FASHN',
+    engine: 'Studio',
     blurb: 'Deterministic try-on for any wearable item, including shoes, hats, jewellery and bags. Supports a short editing prompt.',
     steps: ['Upload the model photo', 'Upload the garment or accessory', 'Optional: a short instruction, e.g. "tuck in shirt"', 'Generate'],
     fields: [
@@ -423,7 +423,7 @@ export const WORKFLOWS = [
     label: 'Try-On v1.6 (fast, tops/bottoms)',
     short: 'Fast · 1 credit per image',
     icon: 'Zap',
-    engine: 'FASHN',
+    engine: 'Studio',
     blurb: 'Lightweight try-on for real-time e-commerce. Clothing only (tops, bottoms, one-pieces) — use Try-On Max for shoes or accessories.',
     steps: ['Upload the model photo', 'Upload the garment (flat-lay or on-model)', 'Pick the category', 'Generate'],
     fields: [
@@ -461,7 +461,7 @@ export const WORKFLOWS = [
     label: 'Product → model',
     short: 'Create a model wearing the product',
     icon: 'IdCard',
-    engine: 'FASHN',
+    engine: 'Studio',
     blurb: 'Generates a new person wearing your product. Good when you have no model photo. Keeps the product, not the reference pose or background.',
     steps: ['Upload the product photo', 'Optional: pose/environment reference or a backdrop', 'Describe the model if needed', 'Generate'],
     fields: [
@@ -498,7 +498,7 @@ export const WORKFLOWS = [
     label: 'Model swap',
     short: 'Change face, skin tone, hair',
     icon: 'RefreshCw',
-    engine: 'FASHN',
+    engine: 'Studio',
     blurb: 'Keeps the outfit, pose and styling, and changes the model’s identity. Useful for diverse catalogues from one shoot.',
     steps: ['Upload a model photo already wearing the outfit', 'Describe the new model (optional)', 'Generate'],
     fields: [
@@ -529,7 +529,7 @@ export const WORKFLOWS = [
     label: 'Create model (text)',
     short: 'Generate a fashion model',
     icon: 'CirclePlus',
-    engine: 'FASHN',
+    engine: 'Studio',
     blurb: 'Generate a fashion model from a text description, optionally guided by a pose or composition reference.',
     steps: ['Describe the model', 'Optional: a pose/composition reference', 'Pick the frame and generate'],
     fields: [
@@ -565,7 +565,7 @@ export const WORKFLOWS = [
     short: 'Multi-image prompt editing',
     icon: 'Sparkles',
     engine: 'Agent',
-    blurb: 'The same engine as the app.fashn.ai Agent. Write what you want with up to 6 images; refer to them as "image 1" … "image 6".',
+    blurb: 'The same engine as the studio Agent. Write what you want with up to 6 images; refer to them as "image 1" … "image 6".',
     steps: ['Upload up to 6 images (optional)', 'Pick a preset, or write your own prompt', 'Choose resolution and quality', 'Generate'],
     presets: true,
     fields: [
@@ -658,7 +658,7 @@ export const WORKFLOWS = [
     label: 'Edit (freeform)',
     short: 'Pose, accessories, lighting fixes',
     icon: 'Pencil',
-    engine: 'FASHN',
+    engine: 'Studio',
     blurb: 'Describe a change to one image: pose or view, add an accessory, adjust lighting. Identity and product are preserved.',
     steps: ['Upload the image', 'Describe the change', 'Generate'],
     fields: [
@@ -689,7 +689,7 @@ export const WORKFLOWS = [
     label: 'Reframe (aspect ratio)',
     short: 'Expand or crop to a new ratio',
     icon: 'Maximize',
-    engine: 'FASHN',
+    engine: 'Studio',
     blurb: 'Changes the aspect ratio by smart expansion (outpainting) or cropping. For example, make a 1:1 image 3:4.',
     steps: ['Upload the image', 'Pick the target ratio', 'Generate'],
     fields: [
@@ -720,7 +720,7 @@ export const WORKFLOWS = [
     label: 'Remove background',
     short: 'Transparent PNG cutout',
     icon: 'Copy',
-    engine: 'FASHN',
+    engine: 'Studio',
     blurb: 'Cuts out the main subject as a transparent PNG. Fast, about 1 credit.',
     steps: ['Upload the image', 'Generate'],
     fields: [img('image', 'Image', { required: true, hint: 'At least 128 × 128 px' })],
@@ -733,10 +733,10 @@ export const WORKFLOWS = [
     id: 'ai-studio',
     group: 'AI',
     label: 'AI Studio',
-    short: 'OpenAI writes the prompt · FASHN renders',
+    short: 'AI writes the prompt · engine renders',
     icon: 'Star',
-    engine: 'OpenAI → FASHN Agent',
-    blurb: 'Give any mix of inputs: model, garment(s), shoes, background photo or description. OpenAI reads them and writes the prompt; FASHN renders one output. Then ask for a modification.',
+    engine: 'AI → Agent',
+    blurb: 'Give any mix of inputs: model, garment(s), shoes, background photo or description. An AI model reads them and writes the prompt; the engine renders one output. Then ask for a modification.',
     steps: [
       'Add what you have: model, garment(s), shoes, background — any combination',
       'Keep "AI writes the prompt", or switch to writing your own',
@@ -846,13 +846,13 @@ export const WORKFLOWS = [
 
   /* ---------- Engines ---------- */
   {
-    id: 'openai-edit',
+    id: 'image-edit',
     group: 'Engines',
-    label: 'OpenAI image edit',
-    short: 'gpt-image-1 · needs OPENAI_API_KEY',
+    label: 'Image edit',
+    short: 'Edit and combine photos',
     icon: 'Globe',
-    engine: 'OpenAI',
-    blurb: 'Edits or combines images with OpenAI gpt-image-1. Billed by OpenAI, not FASHN. Needs OPENAI_API_KEY in .env (restart the dev server after adding it).',
+    engine: 'Image AI',
+    blurb: 'Edits or combines images with an AI image model. Billed separately from the studio engine.',
     steps: ['Upload 1–4 images', 'Describe the edit', 'Pick size and quality', 'Generate'],
     fields: [
       imgs('images', 'Images', 4, { required: true }),
@@ -862,7 +862,7 @@ export const WORKFLOWS = [
       num('n', 'Images', 1, 4, 1),
     ],
     credits: () => null,
-    costNote: 'billed by OpenAI',
+    costNote: 'billed separately',
     run: async (v, ctx) => {
       ctx.onStatus?.('Editing your images…');
       const images = await editWithOpenAI({

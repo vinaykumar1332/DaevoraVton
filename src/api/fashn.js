@@ -1,6 +1,5 @@
-// FASHN API client + image utilities.
-// All requests go to /fashn/* which the Vite dev/preview server proxies to
-// https://api.fashn.ai/* and injects the Authorization header server-side.
+// Render client + image utilities. Requests go to /api/render/* (see endpoints.js); the server
+// forwards them with its own credentials, so the browser never sees a key or a provider name.
 import { FASHN_CREDITS, FASHN_RUN, FASHN_STATUS, FASHN_AGENT_RUN, FASHN_AGENT_STATUS, CDN_ORIGINS } from './endpoints.js';
 import { fitPayload } from '@/lib/imageShrink.js';
 
@@ -10,11 +9,11 @@ import { fitPayload } from '@/lib/imageShrink.js';
 
 const HINTS = {
   BadRequest: 'The request was rejected — check images, prompt and settings.',
-  Unauthorized: 'API key missing or invalid. Check FASHN_API_KEY in .env and restart the dev server.',
-  UnauthorizedAccess: 'API key missing or invalid. Check FASHN_API_KEY in .env and restart the dev server.',
+  Unauthorized: 'The service is not connected. Ask the admin to check the settings.',
+  UnauthorizedAccess: 'The service is not connected. Ask the admin to check the settings.',
   NoImageGenerated: 'The model could not produce an image. Try a clearer prompt or different images.',
   ImageLoadError: 'An input image could not be loaded. Use a public URL or re-upload the file.',
-  OutOfCredits: 'Not enough credits. Top up at app.fashn.ai.',
+  OutOfCredits: 'Not enough credits. Top up your credits, then try again.',
   RateLimit: 'Too many requests or not enough credits. Wait a moment / check your balance.',
   RateLimitExceeded: 'Rate limit hit (100 runs / 60 s, 50 status polls / 10 s). Wait a moment and retry.',
   ConcurrencyLimitExceeded: 'Too many jobs running at once (max 6). Wait for one to finish.',
@@ -24,7 +23,7 @@ const HINTS = {
   ThirdPartyError: 'An upstream provider failed. Retry in a moment.',
   UnavailableError: 'The service is temporarily unavailable. Retry shortly.',
   PipelineError: 'Generation pipeline error. Retry, possibly with different inputs.',
-  InternalServerError: 'FASHN server error. Retry shortly.',
+  InternalServerError: 'The service had an error. Retry shortly.',
   NotFound: 'Job not found (expired or belongs to another key).',
   Canceled: 'The job was canceled.',
 };

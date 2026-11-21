@@ -1,7 +1,10 @@
 // Server-side chat turn: OpenAI decides what to do (generate, reply, upscale, remove_background),
 // then buildPrompt adds the house rules and view corrections. Returns the full turn including enginePrompt.
 // Calls OpenAI directly — no proxy needed on the backend.
-import { normalizeNotes, normalizeView, buildPrompt } from './prompt.js';
+import { normalizeNotes, normalizeView, normalizeStyling, buildPrompt } from './prompt.js';
+
+/** Generic code for an upstream failure: no provider name reaches the browser. */
+export const upstreamCode = (status) => (status === 429 ? 'RateLimit' : `Upstream${status}`);
 
 class ApiError extends Error {
   constructor({ status = null, code = 'Error', message = '' }) {
@@ -20,21 +23,34 @@ Your job:
 1. Understand what the user wants: a model wearing garments (top, bottom, dress), shoes or accessories, a background, or a change to the previous result.
 2. If something important is missing, ask ONE short question. Never ask more than one question at a time.
 3. When you have enough, set "generate": true and write a detailed "prompt" for an image engine. The engine receives images in this order: first the previous result (only if use_previous is true), then the photos listed in use_photos, in that same order. Refer to them as "image 1", "image 2", … in that order. Describe garment details precisely (colour, fabric, print, fit, length). Say what must stay unchanged (face, pose, body, background unless a change is asked).
-4. Use use_previous: true ONLY when the user asks to change, adjust or continue the previous result AND sends no new photos. If NEW photos are sent, build the look from those photos (and earlier photos the user refers to), not from the previous result.
+4. Use use_previous: true when the user asks to change, adjust or continue the previous result, even if they also send NEW photos. Example: a previous result plus new shoes and "add these shoes to the previous image" means use_previous true, with the new shoes as the reference. Use use_previous false when the user wants a completely new look (for example a new model and a new dress): then build it only from the photos sent.
    The prompt must describe ONLY what is in the images you use. Never carry over garments, colours or people from earlier turns or the previous prompt unless the user asks for them (a new shirt and a new man means a man in that shirt, nothing from an earlier saree look).
 5. Keep "reply" short, warm and plain (1 to 3 sentences). Never mention APIs, models, prompts or JSON. When you generate, say you are creating the look now.
 6. Two requests have their own dedicated tools. Never use "generate" for them:
    - Only a sharper / bigger / higher-resolution / HD / 2K-4K version of an image, with nothing else changed: action "upscale". Set "resolution" to "2k", "3k" or "4k" (default "4k").
    - Only removing the background / a transparent cut-out: action "remove_background".
    For both, set "target_photo" to the photo number to use, or null to use the previous result. If the user also asks for other changes, use "generate" instead.
-7. When you generate, look closely at every photo you use and fill "photo_notes": one entry per used photo with its "role" (model, garment, shoes, accessory, background, other) and the "view" it shows (front, back, side, three-quarter, flat-lay, unknown). For a person, "view" is which way their body faces the camera; for a garment, which side of the garment is visible.
+7. When you generate, look closely at every photo you use and fill "photo_notes": one entry per used photo with its "role" (model, garment, shoes, accessory, background, logo, pose, other). A photo sent as a pose reference gets role "pose" and the "view" it shows (front, back, side, three-quarter, flat-lay, unknown). For a person, "view" is which way their body faces the camera; for a garment, which side of the garment is visible.
    Also add, when they apply: for a garment, "worn": true if it is shown on a person (a shop or catalogue photo), and "length": "upper" (top, shirt, blouse, jacket), "lower" (trousers, skirt) or "full" (dress, saree, lehenga, gown, jumpsuit); for the model, "framing": "full" if head to feet is visible, otherwise "partial".
    Users send all kinds of photos. Judge each one from what you actually see, not from the order or the file name.
    Set "output_view" to the view of the final image: the model photo's pose unless the user asks for another view.
+   Set "styling" only from what the user asked for, otherwise leave a value null:
+   - "tuck": "in" only when the user asks to tuck the top into the trousers; "out" when they say on top of the pants, not inside, untucked or outside. Tops are untucked by default.
+   - "sleeves": "rolled" or "down".
+   - "fit": "loose" or "fitted".
+   - "pose": "change" when the user asks for a new pose in words; "reference" when they send a pose photo; otherwise null.
+   - "model": "change" only when they ask to swap the person for another model photo they sent.
+   - "add": short names of objects to add to the look (for example "a watch", "sunglasses"), up to 5.
+   - "remove": short names of things to remove from the image, up to 5.
+   Keep the person's face, expression, skin tone, background and visible accessories unless the user asks to change them.
+   For a logo: a garment photo that shows a logo or print gets "logo": true in photo_notes. A logo photo the user sends gets role "logo".
+   For each garment, also fill what you can see, in a few words each: "pattern" (print or pattern, its scale and arrangement), "colors", "fabric", "details" (embroidery, borders, buttons, zips, stitching), "logo_text" (exact text or logo name, only if readable), and "unclear" (what you cannot see). Describe only what is visible. Never guess.
+   Conversation: speak like a warm, professional stylist, in short plain sentences. When a request has several changes, say back in one sentence what you will create. Ask one question at a time, and only when a choice really changes the result.
+   Safety: refuse, kindly and briefly, anything that is not fashion try-on: nudity, sexual content, anyone under 18, hateful content, or a real person's face put on someone who did not send that photo. Use only the people in the user's photos. Never invent brand names or logos.
    If the pose faces away (back or side) and you only have the front of the garment, still generate: say in "reply" that you will match the back to the fabric and that a photo of the garment's back gives exact details.
 
 Reply with JSON only:
-{"reply": string, "action": "reply" | "generate" | "upscale" | "remove_background", "prompt": string, "use_photos": number[], "use_previous": boolean, "resolution": string, "target_photo": number | null, "photo_notes": [{"photo": number, "role": string, "view": string, "worn"?: boolean, "length"?: string, "framing"?: string}], "output_view": "front" | "back" | "side" | "three-quarter"}
+{"reply": string, "action": "reply" | "generate" | "upscale" | "remove_background", "prompt": string, "use_photos": number[], "use_previous": boolean, "resolution": string, "target_photo": number | null, "photo_notes": [{"photo": number, "role": string, "view": string, "worn"?: boolean, "logo"?: boolean, "pattern"?: string, "colors"?: string, "fabric"?: string, "details"?: string, "logo_text"?: string, "unclear"?: string, "length"?: string, "framing"?: string}], "output_view": "front" | "back" | "side" | "three-quarter", "styling": {"tuck": string | null, "sleeves": string | null, "fit": string | null, "pose": string | null, "model": string | null, "add": string[], "remove": string[]}}
 For "reply", "upscale" and "remove_background", use an empty prompt, an empty use_photos array, use_previous false and an empty photo_notes array. Use at most 5 photos.`;
 
 export function normalizeAction(parsed, { photoCount, newCount, firstNew, prompt }) {
@@ -45,6 +61,24 @@ export function normalizeAction(parsed, { photoCount, newCount, firstNew, prompt
   const targetPhoto = Number.isInteger(t) && t >= 1 && t <= photoCount ? t : newCount > 0 ? firstNew : null;
   const resolution = ['2k', '3k', '4k'].includes(parsed.resolution) ? parsed.resolution : '4k';
   return { action, generate: action === 'generate', target_photo: targetPhoto, resolution };
+}
+
+/**
+ * Which references the engine gets, in order. New photos from this message are always included;
+ * the previous result is included when the assistant chose it (e.g. "add these shoes to the last image").
+ */
+export function decideReferences(parsed, { photoCount, newCount, firstNew, hasPrevious, forcePrevious = false }) {
+  const picked = (Array.isArray(parsed.use_photos) ? parsed.use_photos : [])
+    .map(Number)
+    .filter((x) => Number.isInteger(x) && x >= 1 && x <= photoCount)
+    .slice(0, 5);
+  const usePhotos = [...picked];
+  for (let i = 0; i < newCount; i++) {
+    const idx = firstNew + i;
+    if (!usePhotos.includes(idx) && usePhotos.length < 5) usePhotos.push(idx);
+  }
+  const usePrevious = (!!parsed.use_previous || forcePrevious) && !!hasPrevious;
+  return { usePhotos, usePrevious };
 }
 
 /**
@@ -83,8 +117,10 @@ export async function chatTurn({ history, userText, photos, newCount = 0, lastPr
       const worn = role === 'garment' && typeof m.worn === 'boolean' ? `worn: ${m.worn}` : null;
       const length = LENGTHS.has(m.length) ? `length: ${m.length}` : null;
       const framing = FRAMINGS.has(m.framing) ? `framing: ${m.framing}` : null;
+      const pattern = role === 'garment' ? clip(m.pattern, 80) && `pattern: ${clip(m.pattern, 80)}` : null;
+      const details = role === 'garment' ? clip(m.details, 100) && `details: ${clip(m.details, 100)}` : null;
       const notes = clip(m.notes, 80);
-      const parts = [role, type, color, fabric, view, worn, length, framing, notes].filter(Boolean);
+      const parts = [role, type, color, fabric, pattern, details, view, worn, length, framing, notes].filter(Boolean);
       if (!parts.length) return null;
       return `photo ${i + 1}: ${parts.join(', ')}`;
     })
@@ -98,7 +134,7 @@ export async function chatTurn({ history, userText, photos, newCount = 0, lastPr
     content.push({ type: 'text', text: `photo ${n}${n >= firstNew ? ' (NEW)' : ''}:` });
     content.push({ type: 'image_url', image_url: { url: p.src, detail: 'high' } });
   });
-  content.push({ type: 'text', text: `User says: ${userText || '(sent photos only)'}` });
+  content.push({ type: 'text', text: `User says: ${String(userText || '').slice(0, 1000) || '(sent photos only)'}` });
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -113,8 +149,7 @@ export async function chatTurn({ history, userText, photos, newCount = 0, lastPr
 
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    const e = data?.error ?? {};
-    throw new ApiError({ status: res.status, code: e.code || e.type || `OpenAI${res.status}`, message: e.message || res.statusText });
+    throw new ApiError({ status: res.status, code: upstreamCode(res.status), message: 'The assistant is unavailable. Try again.' });
   }
 
   let parsed = {};
@@ -122,15 +157,8 @@ export async function chatTurn({ history, userText, photos, newCount = 0, lastPr
     parsed = JSON.parse(data?.choices?.[0]?.message?.content ?? '{}');
   } catch {}
 
+  const { usePhotos, usePrevious } = decideReferences(parsed, { photoCount: photos.length, newCount, firstNew, hasPrevious, forcePrevious });
   const n = photos.length;
-  const validIdx = (Array.isArray(parsed.use_photos) ? parsed.use_photos : [])
-    .map(Number)
-    .filter((x) => Number.isInteger(x) && x >= 1 && x <= n)
-    .slice(0, 5);
-  const newIdx = Array.from({ length: newCount }, (_, i) => firstNew + i).slice(0, 5);
-  const usePhotos = validIdx.length ? validIdx : newIdx;
-  const useNew = newCount > 0;
-  const usePrevious = (!!parsed.use_previous || forcePrevious) && !!hasPrevious && (!useNew || forcePrevious);
   const prompt = String(parsed.prompt ?? '').slice(0, 10000);
 
   const turn = {
@@ -141,6 +169,7 @@ export async function chatTurn({ history, userText, photos, newCount = 0, lastPr
     use_previous: usePrevious,
     photo_notes: normalizeNotes(parsed.photo_notes, n),
     output_view: normalizeView(parsed.output_view),
+    styling: normalizeStyling(parsed.styling),
   };
 
   // Build the full engine prompt (assistant prompt + house rules + view rules) on the server.
@@ -151,6 +180,7 @@ export async function chatTurn({ history, userText, photos, newCount = 0, lastPr
         usePhotos: turn.use_photos.filter((idx) => idx >= 1 && idx <= n),
         usePrevious: turn.use_previous,
         outputView: turn.output_view,
+        styling: turn.styling,
       })
     : '';
 
@@ -180,8 +210,7 @@ export async function enhanceRequest({ text, photoCount, openaiKey, signal }) {
   });
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    const e = data?.error ?? {};
-    throw new ApiError({ status: res.status, code: e.code || e.type || `OpenAI${res.status}`, message: e.message || res.statusText });
+    throw new ApiError({ status: res.status, code: upstreamCode(res.status), message: 'The assistant is unavailable. Try again.' });
   }
   let parsed = {};
   try {

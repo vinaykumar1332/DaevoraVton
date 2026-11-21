@@ -26,7 +26,7 @@ export async function editWithOpenAI({ images, prompt, size = 'auto', quality = 
     const e = data?.error ?? {};
     throw new FashnError({
       status: res.status,
-      code: e.code || e.type || `OpenAI${res.status}`,
+      code: res.status === 429 ? 'RateLimit' : `Upstream${res.status}`,
       message: e.message || res.statusText,
       raw: data,
     });

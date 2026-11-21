@@ -1,7 +1,7 @@
 {
   "rewrites": [
-    { "source": "/fashn/:path*", "destination": "/api/fashn?path=:path*" },
-    { "source": "/openai/:path*", "destination": "/api/openai?path=:path*" },
+    { "source": "/api/render/:path*", "destination": "/api/render?path=:path*" },
+    { "source": "/api/assist/:path*", "destination": "/api/assist?path=:path*" },
     { "source": "/cdn/:path*", "destination": "https://cdn.fashn.ai/:path*" },
     { "source": "/media/:path*", "destination": "https://media.fashn.ai/:path*" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }

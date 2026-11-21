@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+﻿import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthProvider } from '@/auth/context/AuthContext.jsx';
 import AuthGate from '@/auth/components/AuthGate.jsx';
@@ -18,7 +18,7 @@ function mockServer({ session = null, login } = {}) {
         : json(401, { error: 'InvalidCredentials', message: 'Incorrect username or password.' });
     }
     if (url === '/api/logout') return json(200, { ok: true });
-    if (url === '/fashn/v1/credits') return json(401, { error: { name: 'SessionExpired' } }, { 'X-Session-Expired': '1' });
+    if (url === '/api/render/v1/credits') return json(401, { error: { name: 'SessionExpired' } }, { 'X-Session-Expired': '1' });
     return json(404, {});
   }));
   return server;
@@ -115,7 +115,7 @@ describe('login flow', () => {
     setup();
     await screen.findByText('Protected app');
     await act(async () => {
-      await window.fetch('/fashn/v1/credits'); // goes through AuthProvider's wrapper
+      await window.fetch('/api/render/v1/credits'); // goes through AuthProvider's wrapper
     });
     expect(await screen.findByRole('heading', { name: /welcome back/i })).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent(/session ended/i);

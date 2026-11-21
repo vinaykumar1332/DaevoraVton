@@ -70,7 +70,8 @@ describe('buildPrompt', () => {
       usePhotos: [1, 2],
       outputView: 'front',
     });
-    expect(out).toBe(`${P}\n\n${HOUSE_RULES}`);
+    expect(out).toMatch(new RegExp(`^${P}\\n\\n.*\\n\\n${HOUSE_RULES.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
+    expect(out).not.toMatch(/Final framing|back view|side view|pose reference|shows the back/i);
   });
 
   it('ignores notes about photos that are not sent to the engine', () => {

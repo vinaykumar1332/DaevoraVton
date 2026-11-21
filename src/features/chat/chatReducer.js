@@ -39,13 +39,14 @@ function touch(state, chatId, change, now = Date.now()) {
 export function chatReducer(state, action) {
   switch (action.type) {
     case 'LOADED': {
-      const list = action.chats.length ? action.chats : [action.fresh];
+      // Every sign-in starts on a new, empty chat. Saved chats stay in History.
+      const list = [action.fresh, ...action.chats];
       return {
         ...state,
         loaded: true,
         chats: Object.fromEntries(list.map((c) => [c.id, c])),
         order: list.map((c) => c.id),
-        activeId: list[0].id,
+        activeId: action.fresh.id,
       };
     }
 

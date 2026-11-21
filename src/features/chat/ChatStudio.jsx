@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import PhotoPreview from '@/components/common/PhotoPreview.jsx';
+import QuickActionCard from '@/components/common/QuickActionCard.jsx';
 import {
   ArrowUp, Check, CircleStop, Download, Eraser, Footprints, History, ImageIcon, Loader2, Maximize2, MessageSquare, Palette, Paperclip, Pencil,
   PersonStanding, Plus, RotateCcw, Scan, Search, Shirt, Sparkles, Square, SquarePen, Table2, Trash2, TriangleAlert, X,
@@ -14,6 +16,7 @@ import { prepareFile } from '@/lib/imageIntake.js';
 import { shrinkDataURI } from '@/lib/imageShrink.js';
 import { backendEnhanceRequest as enhanceRequest, backendAnalyzePhoto } from '@/api/backend.js';
 import { friendlyError } from '@/lib/messages.js';
+import { useAuth } from '@/auth/context/AuthContext.jsx';
 import ResultBubble from '@/features/gallery/ResultCard.jsx';
 import { useChat } from './ChatProvider.jsx';
 import { uid } from './chatReducer.js';
@@ -57,13 +60,19 @@ function useElapsed(startedAt) {
   return startedAt ? Math.max(0, Math.floor((now - startedAt) / 1000)) : 0;
 }
 
+/** Short tags for a photo's analysis, shown in the preview. */
+function tagsOf(meta) {
+  if (!meta) return [];
+  return [meta.role, meta.type, meta.color, meta.fabric, meta.view, meta.pattern, meta.logo ? 'logo' : null].filter(Boolean);
+}
+
 // Quick-start cards for an empty chat. Each one either fills the composer or opens an existing page.
 const QUICK_ACTIONS = [
   { label: 'Try an outfit', hint: 'Dress a model in a garment', icon: Shirt, text: 'Dress a model in my garment' },
   { label: 'Change background', hint: 'Studio or custom setting', icon: ImageIcon, text: 'Change the background to a studio' },
   { label: 'Upscale image', hint: 'Sharper, up to 4K', icon: Maximize2, text: 'Upscale this to 4K' },
   { label: 'Remove background', hint: 'Transparent cut-out', icon: Eraser, text: 'Remove the background' },
-  { label: 'Bulk generation', hint: 'Models × garments grid', icon: Table2, page: 'bulk' },
+  { label: 'Bulk generation', hint: 'Models × garments grid', icon: Table2, soon: true },
 ];
 
 function QuickActions({ onPick, onOpenPage }) {
@@ -73,16 +82,8 @@ function QuickActions({ onPick, onOpenPage }) {
       <h3 id="hero-title">What are we styling today?</h3>
       <p>Describe a look, add photos, or start with a quick action.</p>
       <div className="quick-actions" role="group" aria-label="Quick start">
-        {QUICK_ACTIONS.map(({ label, hint, icon: Icon, text, page }) => (
-          <button key={label} type="button" className="quick-card" onClick={() => (page ? onOpenPage(page) : onPick(text))}>
-            <span className="quick-icon" aria-hidden="true">
-              <Icon />
-            </span>
-            <span className="quick-text">
-              <b>{label}</b>
-              <small>{hint}</small>
-            </span>
-          </button>
+        {QUICK_ACTIONS.map(({ label, hint, icon, text, soon }) => (
+          <QuickActionCard key={label} icon={icon} title={label} hint={hint} disabled={soon} onClick={() => onPick(text)} />
         ))}
       </div>
     </section>
@@ -93,6 +94,8 @@ export default function ChatStudio({ onNavigate }) {
   const { state, active, run, send, runTool, resend, regenerate, stop, newChat, selectChat, deleteChat } = useChat();
   const [pending, setPending] = useState([]); // photos attached to the message being written
   const [photoMeta, setPhotoMeta] = useState({}); // { [photoId]: analysis } — populated async on upload
+  const [preview, setPreview] = useState(null); // { src, alt, tags } for the shared photo preview
+  const closePreview = useCallback(() => setPreview(null), []);
   const [editOn, setEditOn] = useState(true); // the next message changes the last look (same image, same resolution)
   const [input, setInput] = useState('');
   const [enhancing, setEnhancing] = useState(false);
@@ -254,7 +257,7 @@ export default function ChatStudio({ onNavigate }) {
               onOpenPage={(page) => onNavigate?.(page)}
             />
           )}
-          {!isEmpty && active.messages.map((m) => (
+          {!isEmpty && active.messages.filter((m) => m.id !== 'welcome').map((m) => (
             <Message
               key={m.id}
               m={m}
@@ -348,7 +351,9 @@ export default function ChatStudio({ onNavigate }) {
                   const tags = meta ? [meta.type, meta.color, meta.view].filter(Boolean) : null;
                   return (
                     <div className="cattach-item" key={p.id}>
-                      <img src={p.src} alt={`Attached photo ${i + 1}`} />
+                      <button type="button" className="cattach-open" onClick={() => setPreview({ src: p.src, alt: `Attached photo ${i + 1}`, tags: tagsOf(meta) })} aria-label={`Preview attached photo ${i + 1}`}>
+                        <img src={p.src} alt="" />
+                      </button>
                       {tags ? (
                         <div className="cattach-tags" aria-label="Detected">
                           {tags.map((t) => <span key={t} className="cattach-tag">{t}</span>)}
@@ -410,6 +415,7 @@ export default function ChatStudio({ onNavigate }) {
                 disabled={busy || pending.length >= MAX_PHOTOS}
               >
                 <Paperclip aria-hidden="true" />
+                <span className="cbtn-label">Photos</span>
               </button>
               <button type="button" className="cbtn cbtn-text" onClick={enhance} disabled={!input.trim() || enhancing || busy}>
                 {enhancing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
@@ -440,6 +446,7 @@ export default function ChatStudio({ onNavigate }) {
           />
         </div>
 
+        {preview && <PhotoPreview src={preview.src} alt={preview.alt} tags={preview.tags} onClose={closePreview} />}
         {lightbox && (
           <Lightbox
             images={lightbox.images}
@@ -580,6 +587,8 @@ function Message({ m, busy, onOpen, onTool, onRegenerate, onAttach, onResend }) 
  * (edit happens in place: Enter or "Send" resends, Escape or "Cancel" keeps the original).
  */
 function UserMessage({ m, busy, onOpen, onResend }) {
+  const { user } = useAuth();
+  const initial = (user?.name ?? '?').trim().charAt(0).toUpperCase();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(m.text);
   const editRef = useRef(null);
@@ -603,6 +612,7 @@ function UserMessage({ m, busy, onOpen, onResend }) {
 
   return (
     <div className={`msg user ${unfinished ? 'unfinished' : ''}`}>
+      <span className="avatar user-avatar" aria-hidden="true">{initial}</span>
       <div className="msg-col">
         <div className={`bubble ${editing ? 'editing' : ''}`} aria-describedby={unfinished ? issueId : undefined}>
           <span className="sr-only">You: </span>

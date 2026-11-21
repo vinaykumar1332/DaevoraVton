@@ -51,8 +51,9 @@ export async function agentJobHandler(req, res) {
 
     if (!upstream.ok) {
       const e = data?.error ?? data ?? {};
-      const code = typeof e === 'string' ? e : (e.name || e.code || `FASHN${upstream.status}`);
-      return send(res, upstream.status, { error: { name: code, message: (typeof e === 'object' ? e.message : '') || 'Job could not be started.' } });
+      const name = typeof e === 'string' ? e : e.name || e.code || '';
+      const code = /^[A-Za-z]{3,40}$/.test(name) && !/openai|fashn/i.test(name) ? name : `Upstream${upstream.status}`;
+      return send(res, upstream.status, { error: { name: code, message: 'The job could not be started. Try again.' } });
     }
 
     if (!data?.id) return send(res, 502, { error: { name: 'NoJobId', message: 'FASHN did not return a job id.' } });

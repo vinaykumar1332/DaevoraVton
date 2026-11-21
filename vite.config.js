@@ -13,7 +13,7 @@ import { photoAnalyzeHandler } from './backend/handlers/photo.js';
  * /fashn and /openai calls without a session, so local behaves like production.
  */
 function devApi() {
-  const allowed = { '/fashn/': FASHN_ALLOW, '/openai/': OPENAI_ALLOW };
+  const allowed = { '/api/render/': FASHN_ALLOW, '/api/assist/': OPENAI_ALLOW };
   const handle = (req, res, next) => {
     const [url] = req.url.split('?');
     if (url === '/api/login') return loginHandler(req, res);
@@ -65,18 +65,18 @@ export default defineConfig(({ mode }) => {
   const proxy = backendOrigin
     ? {
         // All API traffic goes through the Express backend.
-        '/fashn': { target: backendOrigin, changeOrigin: false },
-        '/openai': { target: backendOrigin, changeOrigin: false },
+        '/api/render': { target: backendOrigin, changeOrigin: false },
+        '/api/assist': { target: backendOrigin, changeOrigin: false },
         '/cdn': { target: backendOrigin, changeOrigin: false },
         '/media': { target: backendOrigin, changeOrigin: false },
         '/api': { target: backendOrigin, changeOrigin: false },
       }
     : {
-        '/fashn': {
+        '/api/render': {
           target: 'https://api.fashn.ai',
           changeOrigin: true,
           secure: true,
-          rewrite: (path) => path.replace(/^\/fashn/, ''),
+          rewrite: (path) => path.replace(/^\/api\/render/, ''),
           headers: { Authorization: `Bearer ${env.FASHN_API_KEY ?? ''}` },
         },
         // Result images live on FASHN's CDN, which does not allow direct browser downloads (CORS).
@@ -93,11 +93,11 @@ export default defineConfig(({ mode }) => {
           secure: true,
           rewrite: (path) => path.replace(/^\/media/, ''),
         },
-        '/openai': {
+        '/api/assist': {
           target: 'https://api.openai.com',
           changeOrigin: true,
           secure: true,
-          rewrite: (path) => path.replace(/^\/openai/, ''),
+          rewrite: (path) => path.replace(/^\/api\/assist/, ''),
           headers: { Authorization: `Bearer ${env.OPENAI_API_KEY ?? ''}` },
         },
       };

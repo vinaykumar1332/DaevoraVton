@@ -58,6 +58,8 @@ export function AuthProvider({ children }) {
     try {
       const { res, data } = await postJson(AUTH_LOGIN, { username: username.trim(), password });
       if (res.ok && data?.user) {
+        // Every sign-in starts on AI Studio. Past chats are under "History" in the chat header.
+        window.history.replaceState(null, '', '/ai-studio');
         setUser(data.user);
         return true;
       }

@@ -1,4 +1,4 @@
-# FASHN Virtual Try-On — local demo
+﻿# FASHN Virtual Try-On — local demo
 
 A small React + Vite + Tailwind + shadcn/ui app for trying out two FASHN AI generation modes:
 
@@ -7,7 +7,7 @@ A small React + Vite + Tailwind + shadcn/ui app for trying out two FASHN AI gene
 - **Try-On Max**: a single, deterministic try-on from one model image and one product image. It's cheaper for bulk work.
   It uses `POST /v1/run` with `model_name: "tryon-max"` and polls `GET /v1/status/{id}` every 2 s.
 
-There is no backend. The Vite dev/preview server proxies `/fashn/*` to `https://api.fashn.ai/*` and adds
+There is no backend. The Vite dev/preview server proxies `/api/render/*` to the render service and adds
 `Authorization: Bearer $FASHN_API_KEY` on the server side. This avoids CORS, and the key never reaches the browser bundle.
 
 ## Setup
@@ -83,7 +83,7 @@ Set spending limits in the FASHN and OpenAI dashboards, and rotate a key if it w
 ## Deploying to Vercel
 
 Locally, the Vite proxy adds the API keys. On Vercel there is no Vite server, so the same job is done by
-serverless functions in `api/` (`/fashn/*` and `/openai/*`), wired up by `vercel.json`. `/cdn/*` and `/media/*`
+serverless functions in `api/` (`/api/render/*` and `/api/assist/*`), wired up by `vercel.json`. `/cdn/*` and `/media/*`
 are plain rewrites and every other path falls back to `index.html`, so pages like `/ai-studio` survive a refresh.
 
 1. In the Vercel project go to **Settings → Environment Variables** and add, for Production (and Preview if you use it):

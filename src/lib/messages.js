@@ -12,6 +12,7 @@ const ERRORS = {
   ImageLoadError: ['A photo could not be read', 'Upload the photo again as a JPEG or PNG.'],
   InputValidationError: ['Check your photos', 'A photo has an unsupported size or format. Try a different one.'],
   ContentModerationError: ['Blocked by content rules', 'Change the photos or wording and try again.'],
+  ServiceUnavailable: ['Service unavailable', 'Try again in a moment.'],
   AgentTimeout: ['Took too long', 'Try again, or choose a faster quality setting.'],
   NotFound: ['No longer available', 'That result has expired. Create it again.'],
   PipelineError: ['Could not finish the image', 'Try again, or change the photos.'],
@@ -27,7 +28,7 @@ export function friendlyError(e) {
   if (ERRORS[code]) [title, detail] = ERRORS[code];
   else if (e?.status === 401) [title, detail] = ['Setup needed', 'The AI service is not connected yet. Ask the admin to check the settings.'];
   else if (e?.status === 413) [title, detail] = ['Photos too large', 'The photos are too big to send together. Remove a photo or use smaller photos, then try again.'];
-  else if (code.startsWith('OpenAI') || code.includes('openai')) [title, detail] = ['AI writer unavailable', 'Try again in a moment.'];
+  else if (code.startsWith('Upstream')) [title, detail] = ['Service unavailable', 'Try again in a moment.'];
   else [title, detail] = ['Something went wrong', 'Please try again. If it keeps happening, check your photos and settings.'];
 
   // Developers can still see the real error here.
