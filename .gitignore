@@ -3,3 +3,6 @@ dist
 .env
 .env.local
 *.log
+
+# Bulk VTON batches (extracted images, manifests, results)
+backend/bulk/data/

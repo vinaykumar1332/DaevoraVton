@@ -15,6 +15,9 @@ export const JOB_AGENT    = '/api/job/agent';
 // --- Photo analysis ---
 export const PHOTO_ANALYZE = '/api/photo/analyze';
 
+// --- Bulk VTON (local backend only) ---
+export const BULK = '/api/bulk';
+
 // --- Result quality check ---
 export const QUALITY_SCORE = '/api/quality/score';
 

@@ -17,6 +17,7 @@ import { chatTurnHandler, chatEnhanceHandler } from './handlers/chat.js';
 import { agentJobHandler } from './handlers/job.js';
 import { photoAnalyzeHandler } from './handlers/photo.js';
 import { scoreLookHandler } from './handlers/score.js';
+import { bulkHandler } from './bulk/handlers.js';
 
 const PORT = Number(process.env.BACKEND_PORT ?? 3001);
 const MAX_BODY = 4.5 * 1024 * 1024;
@@ -183,6 +184,9 @@ app.all('/api/assist/*', async (req, res) => {
 // --- FASHN CDN passthrough (no auth; images are not sensitive) ---
 app.get('/cdn/*', makeCdnProxy('https://cdn.fashn.ai', '/cdn'));
 app.get('/media/*', makeCdnProxy('https://media.fashn.ai', '/media'));
+
+// Bulk VTON (local only). Reads raw bodies itself, like the other handlers; the rest of the server is unchanged.
+app.all('/api/bulk/*', bulkHandler);
 
 app.listen(PORT, () => {
   console.log(`[backend] Running at http://localhost:${PORT}`);

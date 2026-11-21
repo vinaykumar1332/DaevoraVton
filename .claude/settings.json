@@ -17,7 +17,14 @@
       "Bash(grep -rnE \"sk-[A-Za-z0-9]{20,}|api[_-]?key\\\\s*[:=]\\\\s*['\\\\\"][^'\\\\\"]{12,}\" src api backend)",
       "Bash(npm audit *)",
       "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>{const j=JSON.parse\\(s\\);for\\(const[n,v]of Object.entries\\(j.vulnerabilities||{}\\)\\)console.log\\(v.severity,n,v.range,v.fixAvailable?'fix':'nofix',v.isDirect?'direct':'transitive'\\)}\\)\")",
-      "Bash(git grep *)"
+      "Bash(git grep *)",
+      "Bash(grep -v \"^$\")",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3055 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; Remove-Item -Recurse -Force \"C:\\\\DaevoraVton\\\\backend\\\\bulk\\\\data\" -ErrorAction SilentlyContinue; \"stopped and cleaned\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3055/api/session)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5180/api/session)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5180/api/bulk/batches/x)",
+      "Bash(BACKEND_PORT=3055 node -e \"import\\('vite'\\).then\\(v=>v.loadEnv\\('development', process.cwd\\(\\), ''\\)\\).then\\(e=>console.log\\('loaded:', e.BACKEND_PORT\\)\\)\")",
+      "PowerShell(foreach \\($port in 3055,5182\\) { Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue } }; Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction SilentlyContinue | Select-Object OwningProcess | ForEach-Object { Get-Process -Id $_.OwningProcess | Select-Object Id, ProcessName, Path }; \"stopped my test servers\")"
     ]
   }
 }

@@ -4,7 +4,7 @@
 import { send, sessionFromReq } from '../api/_auth.js';
 
 const WINDOW_MS = 60 * 1000;
-const LIMITS = { chat: 40, job: 12, photo: 60, score: 60 };
+const LIMITS = { chat: 40, job: 12, photo: 60, score: 60, bulk: 120 };
 const hits = new Map();
 
 function overBudget(key, limit, now) {

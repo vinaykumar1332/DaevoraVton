@@ -19,7 +19,7 @@ import ErrorBoundary from '@/components/common/ErrorBoundary.jsx';
 
 // Pages that are live in the UI. The others are hidden and their URLs fall back to AI Studio.
 // Their code stays in place: add an id here to bring a page back.
-const LIVE_PAGES = ['ai-studio'];
+const LIVE_PAGES = ['ai-studio', 'bulk'];
 const ROUTE_IDS = LIVE_PAGES;
 
 // Sidebar: every page is listed, grouped as in engines.js; pages that are not live yet are shown disabled.
@@ -28,17 +28,17 @@ const NAV = [
     g,
     items: WORKFLOWS.filter((w) => w.group === g && NAV_IDS.includes(w.id)).map((w) => ({ id: w.id, label: w.label, hint: w.short, icon: <WfIcon name={w.icon} /> })),
   })),
-  { g: 'Batch', items: [{ id: 'bulk', label: 'Bulk grid', hint: 'Models × garments', icon: <Table2 aria-hidden="true" /> }] },
+  { g: 'Batch', items: [{ id: 'bulk', label: 'Bulk try-on', hint: 'ZIP batch', icon: <Table2 aria-hidden="true" /> }] },
 ].filter((section) => section.items.length > 0);
 
 const Workspace = lazy(() => import('@/features/workspace/Workspace.jsx'));
 const ChatStudio = lazy(() => import('@/features/chat/ChatStudio.jsx'));
-const BulkPanel = lazy(() => import('@/features/bulk/BulkPanel.jsx'));
+const BulkVtonPage = lazy(() => import('@/features/vton-bulk/BulkVtonPage.jsx'));
 
 /*
   App = shell (top bar + side nav) and routing between three kinds of screen:
     'ai-studio' -> ChatStudio   (chat with the styling assistant)
-    'bulk'      -> BulkPanel    (models x garments grid)
+    'bulk'      -> BulkVtonPage (ZIP batches, mapping and generation jobs)
     other ids   -> Workspace    (form workflows defined in workflows/engines.js)
   Run state lives in useWorkflowRun so it survives switching screens.
 */
@@ -101,7 +101,7 @@ export default function App() {
   }, [active, urlMode]);
 
   useEffect(() => {
-    const title = active === 'bulk' ? 'Bulk grid' : (wf?.label ?? 'AI Studio');
+    const title = active === 'bulk' ? 'Bulk try-on' : (wf?.label ?? 'AI Studio');
     document.title = `${title} · Fitting Room`;
   }, [active, wf]);
 
@@ -236,10 +236,7 @@ export default function App() {
               {active === 'ai-studio' ? (
                 <ChatStudio onNavigate={go} />
               ) : active === 'bulk' ? (
-                <BulkPanel
-                  onDone={(e) => run.addHistory({ id: `${Date.now()}-${Math.random()}`, time: new Date(), ...e })}
-                  onRunsChanged={refreshCredits}
-                />
+                <BulkVtonPage />
               ) : wf ? (
                 <Workspace
                   wf={wf}
