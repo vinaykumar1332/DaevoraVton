@@ -67,7 +67,7 @@ function Landing() {
           </div>
         </div>
         <div className="mk-hero-img">
-          <img src="/Images/Login1.jpg" alt="A model wearing a styled outfit" width="1200" height="1400" fetchPriority="high" />
+          <img src="/Images/Login1.webp" alt="A model wearing a styled outfit" width="1200" height="1400" fetchPriority="high" />
         </div>
       </section>
 

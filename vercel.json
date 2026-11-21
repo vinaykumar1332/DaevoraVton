@@ -10,7 +10,8 @@
     "api/*.js": { "maxDuration": 120 },
     "api/chat/*.js": { "maxDuration": 120 },
     "api/job/*.js": { "maxDuration": 120 },
-    "api/photo/*.js": { "maxDuration": 30 }
+    "api/photo/*.js": { "maxDuration": 30 },
+    "api/quality/*.js": { "maxDuration": 30 }
   },
   "headers": [
     {

@@ -101,13 +101,13 @@ describe('buildPrompt: any mix of inputs', () => {
     expect(rulesFor([{ photo: 1, role: 'model', view: 'front' }, { photo: 2, role: 'garment', view: 'flat-lay' }])).toMatch(/image 2 is a garment laid flat/i);
   });
 
-  it('cropped model + full-length garment: show the whole outfit', () => {
+  it('keeps the model photo framing, even for a full-length garment on a cropped model', () => {
     const out = rulesFor([
       { photo: 1, role: 'model', view: 'front', framing: 'partial' },
       { photo: 2, role: 'garment', view: 'front', length: 'full' },
     ]);
-    expect(out).toMatch(/model photo is cropped, but the garment is full length/i);
-    expect(rulesFor([{ photo: 1, role: 'model', view: 'front', framing: 'partial' }, { photo: 2, role: 'garment', view: 'front', length: 'upper' }])).not.toMatch(/cropped/);
+    expect(out).toMatch(/keep the framing of the model photo/i);
+    expect(out).not.toMatch(/whole outfit|extending the figure/i);
   });
 
   it('background, shoes and accessory photos each get their own instruction with the right image numbers', () => {

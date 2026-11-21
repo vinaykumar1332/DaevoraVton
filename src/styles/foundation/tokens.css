@@ -14,6 +14,9 @@
   --ds-accent-ink: #0d2fb8;
   --ds-accent-wash: #e4ebff;
   --ds-danger: #dc2626;
+  --ds-ok: #15803d;
+  --ds-warn: #b45309;
+  --ds-bad: #b91c1c;
 
   /* shape */
   --ds-radius: 6px;

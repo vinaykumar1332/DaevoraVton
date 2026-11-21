@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader } from '@/co
 import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 
-const HERO_IMAGES = ['/Images/Login1.jpg', '/Images/Login2.avif'];
+const HERO_IMAGES = ['/Images/Login1.webp', '/Images/Login2.avif'];
 const SLIDE_MS = 6000;
 
 export default function LoginPage() {

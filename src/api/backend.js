@@ -2,7 +2,7 @@
 // All AI logic (OpenAI, FASHN job starts) lives on the server.
 // The frontend sends data here and receives decisions / job IDs back.
 import { FashnError } from './fashn.js';
-import { CHAT_TURN, CHAT_ENHANCE, JOB_AGENT, PHOTO_ANALYZE } from './endpoints.js';
+import { CHAT_TURN, CHAT_ENHANCE, JOB_AGENT, PHOTO_ANALYZE, QUALITY_SCORE } from './endpoints.js';
 import { fitPayload } from '@/lib/imageShrink.js';
 
 const TIMEOUT_MS = 90_000;
@@ -71,6 +71,14 @@ export async function backendEnhanceRequest({ text, photoCount, signal }) {
  */
 export async function backendStartAgentJob({ prompt, images, resolution, generation_mode, aspect_ratio, signal }) {
   return post(JOB_AGENT, { prompt, images, resolution, generation_mode, aspect_ratio }, signal);
+}
+
+/**
+ * Quality check of a finished look against its inputs and request.
+ * Returns { match, areas, problems }. Callers treat a failure as "no check", so the result still shows.
+ */
+export async function backendScoreLook({ inputs, output, request, brief, signal }) {
+  return post(QUALITY_SCORE, { inputs, output, request, brief }, signal);
 }
 
 /**

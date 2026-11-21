@@ -4,7 +4,7 @@
 // Message = { id, role: 'user' | 'bot' | 'result', text, images?, kind?, prompt?, used?, seconds? }
 // run     = null | { chatId, status, creating, photo, startedAt }   (one job at a time)
 
-export const WELCOME = "Hi! Upload a model photo, a garment, shoes or a background, or just tell me what you'd like. I can also upscale an image or remove its background.";
+export const WELCOME = "I'm Daevora, an AI stylist. Upload a model photo and a garment, shoes or a background, or tell me the look you want, and I'll create it. I can also upscale an image or remove its background.";
 const NEW_TITLE = 'New chat';
 
 export const uid = () => globalThis.crypto?.randomUUID?.() ?? `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -102,6 +102,12 @@ export function chatReducer(state, action) {
           title: msg?.text && c.title === titleFrom(msg.text) ? NEW_TITLE : c.title,
         };
       });
+
+    // The quality check of a result: a { match, areas, problems } object, or null when the check failed.
+    case 'SET_SCORE':
+      return touch(state, action.chatId, (c) => ({
+        messages: c.messages.map((m) => (m.id === action.messageId ? { ...m, score: action.score } : m)),
+      }));
 
     case 'SET_LAST_RESULT':
       return touch(state, action.chatId, () => ({ lastResult: action.lastResult }));

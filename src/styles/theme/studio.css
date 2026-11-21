@@ -15,7 +15,7 @@
   --r-md: 12px;
   --r-lg: 20px;
   --font-display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
-  --font-body: 'Figtree', 'Segoe UI', system-ui, sans-serif;
+  --font-body: var(--font-display);
 
   /* PrimeReact tokens */
   --primary-color: var(--marker);
@@ -3732,7 +3732,7 @@ h4 {
 /* ================= Composer v4: one card, icon tags, thumbnail attachments =================
    The conversation and the composer share one centred reading column. */
 .chat {
-  --col: 960px;
+  --col: min(100%, 88rem);
   --soft: #f2f4f7;
   --soft-2: #e8ecf1;
 }
@@ -4266,4 +4266,224 @@ h4 {
 .chat {
   /* max-width: min(100%, 64rem); */
   margin-inline: auto;
+}
+
+/* Result quality check: circle on the output, warning line, and the details overlay. */
+.qa-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 2.2rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--ds-line);
+  border-radius: 6px;
+  background: var(--ds-white);
+  color: var(--ds-ink);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.qa-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: var(--ds-ink-2);
+}
+.qa-badge.tone-ok .qa-dot {
+  background: var(--ds-ok);
+}
+.qa-badge.tone-warn .qa-dot {
+  background: var(--ds-warn);
+}
+.qa-badge.tone-bad .qa-dot {
+  background: var(--ds-bad);
+}
+.qa-badge.pending {
+  border: 0;
+  background: var(--ds-ink);
+  color: var(--ds-white);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  cursor: default;
+}
+.qa-spin {
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: var(--ds-white);
+  border-radius: 50%;
+  animation: qa-spin 0.9s linear infinite;
+}
+@keyframes qa-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qa-spin {
+    animation: none;
+  }
+}
+.qa-note {
+  margin: var(--ds-space-2) 0 0;
+  font-size: var(--ds-text-sm);
+  color: var(--ds-ink-2);
+}
+.qa-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ds-accent-ink);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.qa-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 60;
+  width: min(34rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  padding: var(--ds-space-6);
+  background: var(--ds-white);
+  border: 1px solid var(--ds-line);
+  border-radius: var(--ds-radius);
+  box-shadow: var(--ds-shadow-md);
+}
+.qa-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--ds-space-4);
+}
+.qa-summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-4);
+  margin-bottom: var(--ds-space-4);
+}
+.qa-big {
+  font-size: var(--ds-text-2xl);
+  font-weight: 800;
+  line-height: 1;
+}
+.qa-big.tone-ok {
+  color: var(--ds-ok);
+}
+.qa-big.tone-warn {
+  color: var(--ds-warn);
+}
+.qa-big.tone-bad {
+  color: var(--ds-bad);
+}
+.qa-areas {
+  list-style: none;
+  margin: 0 0 var(--ds-space-4);
+  padding: 0;
+  display: grid;
+  gap: var(--ds-space-2);
+  font-size: var(--ds-text-sm);
+}
+.qa-areas li {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr) 3rem;
+  gap: var(--ds-space-3);
+  align-items: center;
+}
+.qa-bar {
+  display: block;
+  height: 0.5rem;
+  overflow: hidden;
+  border-radius: var(--ds-radius);
+  background: var(--ds-paper);
+}
+.qa-bar > span {
+  display: block;
+  height: 100%;
+}
+.qa-bar .tone-ok {
+  background: var(--ds-ok);
+}
+.qa-bar .tone-warn {
+  background: var(--ds-warn);
+}
+.qa-bar .tone-bad {
+  background: var(--ds-bad);
+}
+.qa-problems {
+  margin: 0 0 var(--ds-space-4);
+  padding-left: 1.2rem;
+  display: grid;
+  gap: var(--ds-space-2);
+  font-size: var(--ds-text-sm);
+}
+.qa-disclaimer {
+  margin: var(--ds-space-4) 0;
+  font-size: var(--ds-text-xs);
+}
+.qa-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Before / after view: the compare slider with a picker for the input photo. */
+.ba-panel {
+  width: min(64rem, calc(100vw - 2rem));
+}
+.ba-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+}
+.ba-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+  margin-top: var(--ds-space-3);
+}
+.ba-thumb {
+  width: 3.5rem;
+  height: 3.5rem;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+.ba-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ba-thumb.on {
+  border-color: var(--ds-accent);
+}
+
+/* Assistant: a slow spin on the avatar while it works, and its name above each reply. */
+.avatar.is-thinking {
+  animation: bot-think 3.2s linear infinite;
+}
+@keyframes bot-think {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .avatar.is-thinking {
+    animation: none;
+  }
+}
+.bot-name {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  color: var(--ds-ink-2);
 }

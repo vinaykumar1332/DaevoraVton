@@ -3,6 +3,9 @@ import { Download, Pencil, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { renderImage, RATIOS, FORMATS, DEFAULT_SETTINGS } from '@/lib/imageTools.js';
+import { QA_AREA_LABEL, QA_SOURCE_LABEL, QA_TARGET, qaTone } from '@/lib/qa.js';
+import CompareSlider from '@/components/common/CompareSlider.jsx';
+import { BOT_NAME } from '@/lib/bot.js';
 
 const KIND_LABEL = { upscale: 'Upscaled', cutout: 'Background removed' };
 const RESOLUTIONS = [
@@ -22,6 +25,9 @@ export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach
   const [saving, setSaving] = useState(false);
   const [expired, setExpired] = useState(false);
   const [open, setOpen] = useState(false);
+  const [qaOpen, setQaOpen] = useState(false);
+  const [cmpOpen, setCmpOpen] = useState(false);
+  const [beforeIdx, setBeforeIdx] = useState(0);
   const [closing, setClosing] = useState(false);
   const [res, setRes] = useState('2k');
   const resWidth = RESOLUTIONS.find((r) => r.id === res).width;
@@ -106,6 +112,7 @@ export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach
     <div className="msg bot">
       <span className="avatar" aria-hidden="true">✦</span>
       <div className="bubble result">
+        <span className="bot-name">{BOT_NAME}</span>
         <p>{m.text}</p>
         {(KIND_LABEL[m.kind] || m.seconds != null) && (
           <small className="gen-time">
@@ -118,11 +125,22 @@ export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach
             This image is no longer available. Results are kept for about 3 days, so download the ones you want to keep.
           </div>
         ) : (
-          <button type="button" className="preview-btn" onClick={() => onOpen(m.images, 0)} aria-label="Open image full screen">
+          <button
+            type="button"
+            className="preview-btn"
+            onClick={() => (m.used?.length ? setCmpOpen(true) : onOpen(m.images, 0))}
+            aria-label={m.used?.length ? 'Compare before and after' : 'Open image full screen'}
+          >
             <img src={preview ?? src} alt="Your look" className={preview ? 'ready' : 'loading'} onError={() => !preview && setExpired(true)} />
           </button>
         )}
         {m.images.length > 1 && <small className="muted">Showing 1 of {m.images.length}. Download saves all of them.</small>}
+        {m.score?.match != null && m.score.match < QA_TARGET && (
+          <p className="qa-note" role="status">
+            Quality check {m.score.match}%, below the {QA_TARGET}% target.{' '}
+            <button type="button" className="qa-link" onClick={() => setQaOpen(true)}>See what is missing</button>
+          </p>
+        )}
 
         {!expired && (
           <div className="rb-actions">
@@ -134,6 +152,7 @@ export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach
               <Download aria-hidden="true" />
               {saving ? 'Preparing…' : m.images.length > 1 ? `Download all ${m.images.length}` : 'Download'}
             </button>
+            {m.score != null && <QaBadge score={m.score} onOpen={() => setQaOpen(true)} />}
           </div>
         )}
 
@@ -154,6 +173,102 @@ export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach
             <p className="muted">{m.prompt}</p>
           </details>
         )}
+
+        {cmpOpen && m.used?.length > 0 &&
+          createPortal(
+            <div className="pp-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setCmpOpen(false)}>
+              <div className="qa-panel ba-panel" role="dialog" aria-modal="true" aria-label="Before and after">
+                <header className="qa-head">
+                  <b>Before and after</b>
+                  <span className="ba-head-actions">
+                    <button type="button" className="rb-btn rb-btn-secondary" onClick={() => onOpen(m.images, 0)}>
+                      Full image
+                    </button>
+                    <button type="button" className="rso-close" onClick={() => setCmpOpen(false)} aria-label="Close before and after">
+                      <X aria-hidden="true" />
+                    </button>
+                  </span>
+                </header>
+                <CompareSlider key={beforeIdx} before={m.used[beforeIdx]} after={src} />
+                <div className="ba-pick" role="radiogroup" aria-label="Photo to compare with the result">
+                  {m.used.map((u, i) => (
+                    <button
+                      key={u + i}
+                      type="button"
+                      role="radio"
+                      aria-checked={i === beforeIdx}
+                      className={`ba-thumb ${i === beforeIdx ? 'on' : ''}`}
+                      onClick={() => setBeforeIdx(i)}
+                    >
+                      <img src={u} alt={`Input ${i + 1}`} />
+                    </button>
+                  ))}
+                </div>
+                <p className="qa-disclaimer muted">Drag the line to compare. Before: input {beforeIdx + 1}. After: the generated look.</p>
+              </div>
+            </div>,
+            document.body
+          )}
+
+        {qaOpen && m.score?.areas &&
+          createPortal(
+            <div className="pp-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setQaOpen(false)}>
+              <div className="qa-panel" role="dialog" aria-modal="true" aria-label="Quality check">
+                <header className="qa-head">
+                  <b>Quality check</b>
+                  <button type="button" className="rso-close" onClick={() => setQaOpen(false)} aria-label="Close quality check">
+                    <X aria-hidden="true" />
+                  </button>
+                </header>
+                <div className="qa-summary">
+                  <span className={`qa-big tone-${qaTone(m.score.match)}`}>{m.score.match}%</span>
+                  <span className="muted">
+                    {m.score.match >= QA_TARGET ? `Meets the ${QA_TARGET}% target.` : `Below the ${QA_TARGET}% target. Here is what is missing.`}
+                  </span>
+                </div>
+                <ul className="qa-areas">
+                  {Object.entries(m.score.areas).map(([area, v]) => (
+                    <li key={area}>
+                      <span>{QA_AREA_LABEL[area] ?? area}</span>
+                      <span className="qa-bar" aria-hidden="true">
+                        <span className={`tone-${qaTone(v)}`} style={{ width: `${v}%` }} />
+                      </span>
+                      <b>{v}%</b>
+                    </li>
+                  ))}
+                </ul>
+                <h6>What is missing</h6>
+                {m.score.problems?.length ? (
+                  <ol className="qa-problems">
+                    {m.score.problems.map((p, i) => (
+                      <li key={i}>
+                        <b>{QA_AREA_LABEL[p.area] ?? p.area}.</b> {p.detail} <small className="muted">{QA_SOURCE_LABEL[p.source] ?? ''}</small>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="muted">No specific problem was found.</p>
+                )}
+                <p className="qa-disclaimer muted">An automatic check by a model. It can be wrong, so look at the result too.</p>
+                {onRegenerate && m.engine && (
+                  <div className="qa-actions">
+                    <button
+                      type="button"
+                      className="rb-btn rb-btn-secondary"
+                      disabled={busy}
+                      onClick={() => {
+                        setQaOpen(false);
+                        onRegenerate();
+                      }}
+                    >
+                      Make it again
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>,
+            document.body
+          )}
 
         {open &&
           createPortal(
@@ -259,6 +374,24 @@ export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach
 
       </div>
     </div>
+  );
+}
+
+function QaBadge({ score, onOpen }) {
+  if (score.pending) {
+    return (
+      <span className="qa-badge pending" role="status">
+        <span className="qa-spin" aria-hidden="true" />
+        Checking
+      </span>
+    );
+  }
+  const tone = qaTone(score.match);
+  return (
+    <button type="button" className={`qa-badge tone-${tone}`} onClick={onOpen} aria-label={`Quality score ${score.match} out of 100. Show details`} title="See what is missing">
+      <span className="qa-dot" aria-hidden="true" />
+      {score.match}/100
+    </button>
   );
 }
 

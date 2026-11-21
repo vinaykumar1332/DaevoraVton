@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
 import { useAuth } from '@/auth/context/AuthContext.jsx';
-import { backendChatTurn, backendStartAgentJob, backendAnalyzePhoto } from '@/api/backend.js';
+import { backendChatTurn, backendStartAgentJob, backendAnalyzePhoto, backendScoreLook } from '@/api/backend.js';
 import { findWorkflow } from '@/workflows/engines.js';
 import { pollAgent, extractAgentResults, downloadImage } from '@/api/fashn.js';
 import { friendlyError, friendlyStatus } from '@/lib/messages.js';
@@ -163,17 +163,19 @@ export function ChatProvider({ children, onJobSettled }) {
     });
     const ex = extractAgentResults(final);
     if (!ex.images.length) throw Object.assign(new Error('No image was returned'), { code: 'NoImageGenerated' });
+    const messageId = uid();
     dispatch({
       type: 'APPEND',
       chatId,
       message: {
-        id: uid(),
+        id: messageId,
         role: 'result',
         kind: 'look',
         text: 'Here is your look. Want anything changed?',
         images: ex.images,
         prompt,
         engine: enginePrompt,
+        score: { pending: true },
         resolution,
         used: images,
         seconds: Math.round((Date.now() - started) / 1000),
@@ -181,6 +183,9 @@ export function ChatProvider({ children, onJobSettled }) {
       },
     });
     dispatch({ type: 'SET_LAST_RESULT', chatId, lastResult: { url: ex.images[0], prompt, resolution } });
+    backendScoreLook({ inputs: images.slice(0, 6), output: ex.images[0], request: prompt, brief: enginePrompt })
+      .then((score) => dispatch({ type: 'SET_SCORE', chatId, messageId, score }))
+      .catch(() => dispatch({ type: 'SET_SCORE', chatId, messageId, score: null }));
   }
 
   /** Runs the same look again with the same inputs, prompt and resolution. */

@@ -15,6 +15,9 @@ export const JOB_AGENT    = '/api/job/agent';
 // --- Photo analysis ---
 export const PHOTO_ANALYZE = '/api/photo/analyze';
 
+// --- Result quality check ---
+export const QUALITY_SCORE = '/api/quality/score';
+
 // --- Render service proxy (Vite dev proxy / Vercel rewrite → api/render.js). Generic paths: no vendor names in the browser. ---
 const RENDER = '/api/render';
 export const FASHN_CREDITS       = `${RENDER}/v1/credits`;

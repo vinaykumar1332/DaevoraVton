@@ -143,9 +143,7 @@ export function buildPrompt({ prompt, notes = [], usePhotos = [], usePrevious = 
     rules.push(`${list(worn)} ${worn.length === 1 ? 'shows the garment' : 'show garments'} worn by someone else: copy only the garment, never that person’s face, body, pose or background.`);
   }
   if (flat.length) rules.push(`${list(flat)} ${flat.length === 1 ? 'is a garment' : 'are garments'} laid flat: put ${flat.length === 1 ? 'it' : 'them'} on the body with a natural fit, drape and folds.`);
-  if (models.some((m) => m.framing === 'partial') && garments.some((g) => g.length === 'full')) {
-    rules.push('The model photo is cropped, but the garment is full length: show the whole outfit, extending the figure naturally with the same face and body proportions.');
-  }
+  if (models.length) rules.push('Keep the framing of the model photo: the same crop and camera distance, showing the same part of the body, so the image ends where the model photo ends.');
   if (of('background').length) {
     rules.push(`Place the person in the setting from ${list(of('background'))}: match its light direction, colour and perspective, and keep the person and the outfit unchanged.`);
   }

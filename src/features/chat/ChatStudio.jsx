@@ -8,6 +8,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { notify } from '@/lib/notify.js';
+import { BOT_NAME } from '@/lib/bot.js';
 import Lightbox from '@/components/common/Lightbox.jsx';
 import PageLoader from '@/components/common/PageLoader.jsx';
 import FittingLoader from '@/components/common/FittingLoader.jsx';
@@ -214,7 +215,7 @@ export default function ChatStudio({ onNavigate }) {
         }}
       >
         <header className="chat-head">
-          <span className="avatar" aria-hidden="true">✦</span>
+          <span className={`avatar ${busyHere ? 'is-thinking' : ''}`} aria-hidden="true">✦</span>
           <div className="chat-title">
             <h2 id="chat-title">{active.title}</h2>
             <p className="chat-status" role="status">
@@ -279,7 +280,7 @@ export default function ChatStudio({ onNavigate }) {
           )}
           {busyHere && !run.creating && (
             <div className="msg bot">
-              <span className="avatar" aria-hidden="true">✦</span>
+              <span className="avatar is-thinking" aria-hidden="true">✦</span>
               <div className="bubble typing" role="status">
                 <span />
                 <span />
@@ -576,6 +577,7 @@ function Message({ m, busy, onOpen, onTool, onRegenerate, onAttach, onResend }) 
       <span className="avatar" aria-hidden="true">✦</span>
       <div className="bubble">
         <span className="sr-only">Assistant: </span>
+        <span className="bot-name">{BOT_NAME}</span>
         <p>{m.text}</p>
       </div>
     </div>

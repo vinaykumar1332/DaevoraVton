@@ -16,6 +16,7 @@ import { jobStore, logRequest } from './metrics.js';
 import { chatTurnHandler, chatEnhanceHandler } from './handlers/chat.js';
 import { agentJobHandler } from './handlers/job.js';
 import { photoAnalyzeHandler } from './handlers/photo.js';
+import { scoreLookHandler } from './handlers/score.js';
 
 const PORT = Number(process.env.BACKEND_PORT ?? 3001);
 const MAX_BODY = 4.5 * 1024 * 1024;
@@ -64,6 +65,7 @@ app.post('/api/job/agent', agentJobHandler);
 
 // --- Photo analysis (GPT-4o Vision on upload, non-blocking) ---
 app.post('/api/photo/analyze', photoAnalyzeHandler);
+app.post('/api/quality/score', scoreLookHandler);
 
 // --- Performance metrics ---
 app.get('/api/metrics', (_req, res) => {

@@ -7,6 +7,7 @@ import { FASHN_ALLOW, OPENAI_ALLOW } from './api/_proxy.js';
 import { chatTurnHandler, chatEnhanceHandler } from './backend/handlers/chat.js';
 import { agentJobHandler } from './backend/handlers/job.js';
 import { photoAnalyzeHandler } from './backend/handlers/photo.js';
+import { scoreLookHandler } from './backend/handlers/score.js';
 
 /**
  * Dev/preview version of the Vercel functions: serves /api/login|session|logout and refuses
@@ -23,6 +24,7 @@ function devApi() {
     if (url === '/api/chat/enhance') return chatEnhanceHandler(req, res);
     if (url === '/api/job/agent') return agentJobHandler(req, res);
     if (url === '/api/photo/analyze') return photoAnalyzeHandler(req, res);
+    if (url === '/api/quality/score') return scoreLookHandler(req, res);
     const prefix = Object.keys(allowed).find((p) => url.startsWith(p));
     if (!prefix) return next();
     if (!sessionFromReq(req)) {

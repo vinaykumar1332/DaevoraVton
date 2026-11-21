@@ -9,7 +9,15 @@
       "Bash(node \"C:/Users/Admin/AppData/Local/Temp/claude/51360a5ebe39b025/199689a1-1552-44d9-811b-a82f4175a1a3/scratchpad/dedupe.mjs\" src/styles/theme/studio.css)",
       "Bash(node \"C:/Users/Admin/AppData/Local/Temp/claude/51360a5ebe39b025/199689a1-1552-44d9-811b-a82f4175a1a3/scratchpad/dedupe.mjs\" src/styles/legacy/ui.css)",
       "Bash(node \"C:/Users/Admin/AppData/Local/Temp/claude/51360a5ebe39b025/199689a1-1552-44d9-811b-a82f4175a1a3/scratchpad/dedupe.mjs\" src/styles/legacy/styles.css)",
-      "PowerShell(Get-NetTCPConnection -LocalPort 4173 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; \"stopped\")"
+      "PowerShell(Get-NetTCPConnection -LocalPort 4173 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; \"stopped\")",
+      "Bash(npx vitest *)",
+      "Bash(grep -iE \"^\\\\.env|secret|\\\\.pem|\\\\.key$\")",
+      "Bash(git check-ignore *)",
+      "Bash(grep -rlE \"sk-[A-Za-z0-9]{20,}|FASHN_API_KEY|OPENAI_API_KEY|SESSION_SECRET\" dist)",
+      "Bash(grep -rnE \"sk-[A-Za-z0-9]{20,}|api[_-]?key\\\\s*[:=]\\\\s*['\\\\\"][^'\\\\\"]{12,}\" src api backend)",
+      "Bash(npm audit *)",
+      "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>{const j=JSON.parse\\(s\\);for\\(const[n,v]of Object.entries\\(j.vulnerabilities||{}\\)\\)console.log\\(v.severity,n,v.range,v.fixAvailable?'fix':'nofix',v.isDirect?'direct':'transitive'\\)}\\)\")",
+      "Bash(git grep *)"
     ]
   }
 }
