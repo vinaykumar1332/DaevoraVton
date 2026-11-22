@@ -33,6 +33,13 @@ Fields:
 - unclear: what you cannot see (e.g. "back not visible") — only for garments
 - length: "upper" (top/shirt/jacket) | "lower" (trousers/skirt) | "full" (dress/saree/gown) — only for garments
 - framing: "full" (head to feet visible) | "partial" — only for model photos
+- person: "human" | "mannequin" — only for model photos
+- gender: "woman" | "man" | "unknown" — only for model photos; judge only from what is visible, do not guess
+- pose: "standing" | "sitting" | "walking" | "turned away" | "other" — only for model photos
+- shot: "full_body" only when the head AND the feet are both visible | "cropped_head" when the body is visible to the feet but the head is cut off | "three_quarter" (knees up) | "half_body" (waist up) | "close_up" — only for model photos. Look for the top of the head: if it is out of frame, never use "full_body".
+- sleeve: "sleeveless" | "short" | "long" | "none" — only for garments worn or shown on a body
+- neckline: short description, e.g. "V-neck", "round", "halter" — only for garments
+- style: short description of the cut, e.g. "A-line maxi with side slit", "straight-leg jeans" — only for garments
 - notes: one short sentence of anything important not captured above (optional)
 
 Reply with JSON only. Be concise. If uncertain, omit the field rather than guess.`;
@@ -72,7 +79,7 @@ export async function photoAnalyzeHandler(req, res) {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
       body: JSON.stringify({
         model: 'gpt-4o',
-        max_tokens: 300,
+        max_tokens: 450,
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: SYSTEM },

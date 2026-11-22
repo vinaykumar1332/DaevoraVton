@@ -62,9 +62,16 @@ function useElapsed(startedAt) {
 }
 
 /** Short tags for a photo's analysis, shown in the preview. */
+const SHOT_LABEL = { full_body: 'full body', cropped_head: 'head cropped', three_quarter: 'knees up', half_body: 'half body', close_up: 'close-up' };
+const LENGTH_LABEL = { upper: 'top', lower: 'bottom', full: 'full length' };
+
+/** Short labels shown under a photo: a model shows gender, pose and shot; a garment shows type, colour and length. */
 function tagsOf(meta) {
   if (!meta) return [];
-  return [meta.role, meta.type, meta.color, meta.fabric, meta.view, meta.pattern, meta.logo ? 'logo' : null].filter(Boolean);
+  const known = (v) => v && v !== 'unknown';
+  if (meta.role === 'model') return [meta.person === 'mannequin' ? 'mannequin' : null, known(meta.gender) ? meta.gender : null, meta.pose, SHOT_LABEL[meta.shot]].filter(Boolean);
+  if (meta.role === 'garment') return [meta.type, meta.color, LENGTH_LABEL[meta.length]].filter(Boolean);
+  return [meta.role, meta.type, meta.color].filter(Boolean);
 }
 
 // Quick-start cards for an empty chat. Each one either fills the composer or opens an existing page.
@@ -349,21 +356,28 @@ export default function ChatStudio({ onNavigate }) {
               <div className="cattach" role="group" aria-label={`${pending.length} of ${MAX_PHOTOS} photos attached`}>
                 {pending.map((p, i) => {
                   const meta = photoMeta[p.id];
-                  const tags = meta ? [meta.type, meta.color, meta.view].filter(Boolean) : null;
+                  const tags = meta ? tagsOf(meta).slice(0, 3) : null;
                   return (
                     <div className="cattach-item" key={p.id}>
-                      <button type="button" className="cattach-open" onClick={() => setPreview({ src: p.src, alt: `Attached photo ${i + 1}`, tags: tagsOf(meta) })} aria-label={`Preview attached photo ${i + 1}`}>
-                        <img src={p.src} alt="" />
-                      </button>
-                      {tags ? (
-                        <div className="cattach-tags" aria-label="Detected">
-                          {tags.map((t) => <span key={t} className="cattach-tag">{t}</span>)}
-                        </div>
-                      ) : (
-                        <div className="cattach-tags cattach-tags--analyzing" aria-label="Analyzing">
-                          <Loader2 className="cattach-spin" aria-hidden="true" />
-                        </div>
-                      )}
+                      <div className="cattach-thumb">
+                        <button type="button" className="cattach-open" onClick={() => setPreview({ src: p.src, alt: `Attached photo ${i + 1}`, tags: tagsOf(meta) })} aria-label={`Preview attached photo ${i + 1}`}>
+                          <img src={p.src} alt="" />
+                        </button>
+                        {tags ? (
+                          <div className="cattach-overlay" aria-label={tags.join(', ')}>
+                            {tags.slice(0, 1).map((t) => (
+                              <span key={t} className="cattach-chip">
+                                {t}
+                              </span>
+                            ))}
+                            {tagsOf(meta).length > 1 && <span className="cattach-chip cattach-more">+{tagsOf(meta).length - 1}</span>}
+                          </div>
+                        ) : (
+                          <div className="cattach-overlay cattach-overlay--analyzing" aria-label="Analysing">
+                            <Loader2 className="cattach-spin" aria-hidden="true" />
+                          </div>
+                        )}
+                      </div>
                       <button type="button" className="cattach-remove" aria-label={`Remove attached photo ${i + 1}`} onClick={() => setPending((x) => x.filter((y) => y.id !== p.id))}>
                         <X aria-hidden="true" />
                       </button>

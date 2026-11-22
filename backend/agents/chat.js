@@ -104,6 +104,11 @@ export async function chatTurn({ history, userText, photos, newCount = 0, lastPr
   const VIEWS = new Set(['front', 'back', 'side', 'three-quarter', 'flat-lay', 'unknown']);
   const LENGTHS = new Set(['upper', 'lower', 'full']);
   const FRAMINGS = new Set(['full', 'partial']);
+  const PERSONS = new Set(['human', 'mannequin']);
+  const GENDERS = new Set(['woman', 'man', 'unknown']);
+  const POSES = new Set(['standing', 'sitting', 'walking', 'turned away', 'other']);
+  const SHOTS = new Set(['full_body', 'cropped_head', 'three_quarter', 'half_body', 'close_up']);
+  const SLEEVES = new Set(['sleeveless', 'short', 'long', 'none']);
   const clip = (s, max = 60) => (typeof s === 'string' ? s.replace(/[\r\n]/g, ' ').slice(0, max) : null);
 
   const metaLines = photos
@@ -121,7 +126,14 @@ export async function chatTurn({ history, userText, photos, newCount = 0, lastPr
       const pattern = role === 'garment' ? clip(m.pattern, 80) && `pattern: ${clip(m.pattern, 80)}` : null;
       const details = role === 'garment' ? clip(m.details, 100) && `details: ${clip(m.details, 100)}` : null;
       const notes = clip(m.notes, 80);
-      const parts = [role, type, color, fabric, pattern, details, view, worn, length, framing, notes].filter(Boolean);
+      const person = role === 'model' && PERSONS.has(m.person) ? `person: ${m.person}` : null;
+      const gender = role === 'model' && GENDERS.has(m.gender) ? `gender: ${m.gender}` : null;
+      const pose = role === 'model' && POSES.has(m.pose) ? `pose: ${m.pose}` : null;
+      const shot = role === 'model' && SHOTS.has(m.shot) ? `shot: ${m.shot}` : null;
+      const sleeve = role === 'garment' && SLEEVES.has(m.sleeve) ? `sleeve: ${m.sleeve}` : null;
+      const neckline = role === 'garment' && clip(m.neckline, 40) ? `neckline: ${clip(m.neckline, 40)}` : null;
+      const style = role === 'garment' && clip(m.style, 80) ? `style: ${clip(m.style, 80)}` : null;
+      const parts = [role, person, gender, pose, shot, type, color, fabric, pattern, details, style, neckline, sleeve, view, worn, length, framing, notes].filter(Boolean);
       if (!parts.length) return null;
       return `photo ${i + 1}: ${parts.join(', ')}`;
     })
