@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
  * One shared preview for any photo: large image plus the tags we know about it.
  * `tags` is a list of short strings, e.g. ['garment', 'navy blue', 'front'].
  */
-export default function PhotoPreview({ src, alt = 'Photo', tags = [], onClose }) {
+export default function PhotoPreview({ src, alt = 'Photo', tags = [], onClose, roleValue, roleOptions = [], onRoleChange, warnings = [] }) {
   const closeRef = useRef(null);
 
   useEffect(() => {
@@ -30,6 +30,25 @@ export default function PhotoPreview({ src, alt = 'Photo', tags = [], onClose })
         <div className="pp-image">
           <img src={src} alt={alt} />
         </div>
+        {onRoleChange && (
+          <label className="pp-role">
+            <span>Role</span>
+            <select value={roleValue} onChange={(e) => onRoleChange(e.target.value)}>
+              {roleOptions.map(([v, label]) => (
+                <option key={v} value={v}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {warnings.length > 0 && (
+          <ul className="pp-warnings" role="note">
+            {warnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+        )}
         {tags.length > 0 && (
           <ul className="pp-tags" aria-label="Photo details">
             {tags.map((t) => (

@@ -109,22 +109,56 @@ export function toFashnError(payload, status = null) {
 /* HTTP                                                                */
 /* ------------------------------------------------------------------ */
 
-export async function api(path, { method = 'GET', body, signal } = {}) {
-  const res = await fetch(path, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(await fitPayload(body)) : undefined,
-    signal,
-  });
-  const text = await res.text();
-  let data = null;
+// Reads (GET) are retried on rate limits and server errors: waits of 1 s, 2 s, then 4 s, then stop.
+// Starting a job (POST) is never retried automatically, so a retry cannot start a second paid job.
+export const RETRY_DELAYS_MS = [1000, 2000, 4000];
+export const RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
+const REQUEST_TIMEOUT_MS = 20000;
+
+export function shouldRetry({ method, status, attempt }) {
+  return method === 'GET' && RETRY_STATUSES.has(status) && attempt < RETRY_DELAYS_MS.length;
+}
+
+async function fetchOnce(path, { method, body, signal }) {
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  signal?.addEventListener('abort', onAbort);
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
+    const res = await fetch(path, {
+      method,
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(await fitPayload(body)) : undefined,
+      signal: controller.signal,
+    });
+    const text = await res.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+    return { res, data };
+  } catch (err) {
+    if (signal?.aborted) throw err;
+    if (controller.signal.aborted) throw Object.assign(new Error('The request took too long.'), { code: 'AgentTimeout' });
+    throw err;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', onAbort);
   }
-  if (!res.ok) throw toFashnError(data, res.status);
-  return data;
+}
+
+export async function api(path, { method = 'GET', body, signal } = {}) {
+  for (let attempt = 0; ; attempt++) {
+    const { res, data } = await fetchOnce(path, { method, body, signal });
+    if (res.ok) return data;
+    if (shouldRetry({ method, status: res.status, attempt })) {
+      await sleep(RETRY_DELAYS_MS[attempt], signal);
+      continue;
+    }
+    throw toFashnError(data, res.status);
+  }
 }
 
 export function sleep(ms, signal) {
@@ -170,13 +204,19 @@ export async function runAgent({ prompt, images, resolution, generation_mode, as
   return data.id;
 }
 
-export async function pollAgent(id, { signal, onUpdate, interval = 3000 } = {}) {
+// Every 3 s for the first minute, then every 5 s; give up after 6 minutes.
+export const POLL_SCHEDULE = { fastMs: 3000, slowMs: 5000, fastWindowMs: 60000, limitMs: 6 * 60000 };
+
+export async function pollAgent(id, { signal, onUpdate, schedule = POLL_SCHEDULE } = {}) {
+  const started = Date.now();
   for (;;) {
     const data = await api(FASHN_AGENT_STATUS(id), { signal });
     onUpdate?.(data);
     if (data.status === 'completed') return data;
     if (data.status === 'failed') throw toFashnError(data.error ?? data);
-    await sleep(interval, signal);
+    const elapsed = Date.now() - started;
+    if (elapsed >= schedule.limitMs) throw Object.assign(new Error('Took too long'), { code: 'AgentTimeout' });
+    await sleep(elapsed < schedule.fastWindowMs ? schedule.fastMs : schedule.slowMs, signal);
   }
 }
 

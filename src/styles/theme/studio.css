@@ -65,7 +65,7 @@ h4 {
   color: var(--ink);
 }
 :focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: 2px;
 }
 .muted {
@@ -347,7 +347,7 @@ h4 {
   transform: none;
 }
 .drop-preview:focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: -3px;
 }
 .drop-actions {
@@ -513,7 +513,7 @@ h4 {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  color: #8793a3;
+  color: var(--ink-2);
   transition: color 0.3s;
 }
 .fit-dot {
@@ -623,7 +623,7 @@ h4 {
   background-color: #dfe4e9;
 }
 .tile-img:focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: 2px;
 }
 .tile-img img {
@@ -663,7 +663,7 @@ h4 {
   color: var(--ink);
 }
 .tile-actions button:focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: 2px;
 }
 .steps-strip figcaption {
@@ -1074,7 +1074,7 @@ h4 {
   transform: scale(1.02);
 }
 .result-img:focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: 2px;
 }
 .bubble details summary {
@@ -1437,7 +1437,7 @@ h4 {
   opacity: 0.6;
 }
 .preview-btn:focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: 2px;
 }
 .tools {
@@ -1749,7 +1749,7 @@ h4 {
   transform: translateY(-1px);
 }
 .in-thumb:focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: 2px;
 }
 
@@ -2901,7 +2901,7 @@ h4 {
   object-fit: cover;
 }
 .cattach-open:focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: -3px;
 }
 .pp-close {
@@ -2924,7 +2924,7 @@ h4 {
   height: 1rem;
 }
 .pp-close:focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: 2px;
 }
 
@@ -3630,7 +3630,7 @@ h4 {
 /* visible keyboard focus everywhere in the chat */
 .chat button:focus-visible,
 .chat [role='log']:focus-visible {
-  outline: 2px solid var(--marker);
+  outline: 2px solid var(--marker-ink);
   outline-offset: 2px;
 }
 @media (max-width: 640px) {
@@ -3677,7 +3677,7 @@ h4 {
   cursor: not-allowed;
 }
 .icon-btn:focus-visible {
-  outline: 2px solid var(--marker);
+  outline: 2px solid var(--marker-ink);
   outline-offset: 2px;
 }
 /* small count on the History icon */
@@ -3797,7 +3797,7 @@ h4 {
   transform: translateY(0) scale(0.97);
 }
 .ctag:focus-visible {
-  outline: 2px solid var(--marker);
+  outline: 2px solid var(--marker-ink);
   outline-offset: 2px;
 }
 
@@ -3842,12 +3842,22 @@ h4 {
 }
 .cattach-item {
   position: relative;
-  width: 3.75rem;
-  height: 3.75rem;
+  width: 6.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  animation: chat-in 0.2s ease both;
+}
+.cattach-item .cattach-open {
+  width: 6.5rem;
+  height: 6.5rem;
+  padding: 0;
+  border: 0;
   border-radius: 12px;
   overflow: hidden;
+  background: none;
   box-shadow: 0 0 0 1px rgba(14, 26, 43, 0.08);
-  animation: chat-in 0.2s ease both;
+  cursor: zoom-in;
 }
 .cattach-item img {
   width: 100%;
@@ -3895,8 +3905,8 @@ h4 {
 .cattach-add {
   display: grid;
   place-items: center;
-  width: 3.75rem;
-  height: 3.75rem;
+  width: 6.5rem;
+  height: 6.5rem;
   border: 1.5px dashed #c5cdd7;
   border-radius: 12px;
   background: transparent;
@@ -3913,35 +3923,64 @@ h4 {
   width: 1.1rem;
   height: 1.1rem;
 }
-.cattach-tags {
+.cattach-thumb {
+  position: relative;
+  width: 6.5rem;
+  height: 6.5rem;
+}
+.cattach-thumb .cattach-open {
+  width: 100%;
+  height: 100%;
+}
+.cattach-overlay {
   position: absolute;
-  bottom: 0;
   left: 0;
   right: 0;
+  bottom: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
-  padding: 2px 3px;
-  background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 100%);
-  border-radius: 0 0 0.35rem 0.35rem;
-  min-height: 1.4rem;
-  align-items: flex-end;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 1.4rem 0.3rem 0.3rem;
+  border-radius: 0 0 12px 12px;
+  background: linear-gradient(to top, rgba(14, 26, 43, 0.82) 0%, rgba(14, 26, 43, 0) 100%);
+  pointer-events: none;
+  overflow: hidden;
 }
-.cattach-tag {
-  font-size: 0.6rem;
-  line-height: 1.2;
+.cattach-overlay .cattach-chip {
+  min-width: 0;
+  max-width: calc(100% - 1.8rem);
+  padding: 0.1rem 0.3rem;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ds-ink);
+  font-size: 0.62rem;
+}
+.cattach-more {
+  flex: none;
+  background: var(--ds-accent) !important;
+  color: #fff !important;
+}
+.cattach-overlay--analyzing {
+  justify-content: center;
+  padding: 0.3rem;
+  background: rgba(14, 26, 43, 0.5);
+  border-radius: 12px;
+  inset: 0;
+}
+.cattach-overlay--analyzing .cattach-spin {
   color: #fff;
-  background: rgba(0,0,0,0.35);
-  border-radius: 2px;
-  padding: 1px 3px;
+}
+.cattach-chip {
+  max-width: 100%;
+  padding: 0.12rem 0.4rem;
+  border-radius: 4px;
+  background: var(--ds-accent-wash);
+  color: var(--ds-accent-ink);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 3.4rem;
-}
-.cattach-tags--analyzing {
-  justify-content: center;
-  align-items: center;
 }
 .cattach-spin {
   width: 0.75rem;
@@ -4033,7 +4072,7 @@ h4 {
   --fr-field: #f8fafc;
   --fr-border: #dce3ea;
   --fr-text: #142033;
-  --fr-muted: #667085;
+  --fr-muted: #566173;
   --fr-radius-sm: 10px;
   --fr-radius-md: 14px;
   --fr-radius-lg: 18px;
@@ -4073,9 +4112,18 @@ h4 {
 .qa-card.is-disabled,
 .qa-card:disabled {
   cursor: not-allowed;
-  opacity: 0.5;
   background: var(--fr-field);
   box-shadow: none;
+}
+.qa-card.is-disabled b,
+.qa-card:disabled b,
+.qa-card.is-disabled small,
+.qa-card:disabled small {
+  color: var(--ink-2);
+}
+.qa-card.is-disabled .qa-icon,
+.qa-card:disabled .qa-icon {
+  opacity: 0.6;
 }
 .qa-icon {
   flex: none;
@@ -4486,4 +4534,838 @@ h4 {
   font-size: var(--ds-text-xs);
   font-weight: 600;
   color: var(--ds-ink-2);
+}
+
+/* Photo preview: the details as readable chips */
+.pp-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+}
+.pp-tags li {
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: var(--ds-accent-wash);
+  color: var(--ds-accent-ink);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+}
+
+/* ================= Sidebar and credits: clear expand/collapse, phone drawer, visible balance ================= */
+
+/* Credit balance, always visible (phone header and collapsed rail) */
+.credit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: auto;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--chalk);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.credit-chip b {
+  color: var(--marker-ink);
+  font-weight: 700;
+}
+.credit-chip:disabled {
+  cursor: progress;
+}
+.credit-chip:focus-visible {
+  outline: 2px solid var(--marker-ink);
+  outline-offset: 2px;
+}
+
+/* Collapsed rail: keep the number visible, drop the word */
+.sidebar[data-collapsed='true'] .sb-credit-word {
+  display: none;
+}
+.sidebar[data-collapsed='true'] .sb-credits {
+  align-self: center;
+}
+
+/* Expand/collapse: labels fade with the width, so the rail never shows cut-off text */
+.sidebar .nav-label,
+.sidebar .sb-brand-text,
+.sidebar .sb-account-text {
+  transition: opacity var(--nav-dur) ease;
+}
+.sidebar[data-collapsed='true'] .nav-label,
+.sidebar[data-collapsed='true'] .sb-brand-text {
+  opacity: 0;
+}
+
+/* Phone drawer header and close button: hidden on desktop */
+.sb-drawer-head {
+  display: none;
+}
+.sb-close {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .sb-drawer-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0 0 0.75rem;
+    padding: 0 0.25rem 0.75rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .sb-drawer-head strong {
+    flex: 1;
+    font-size: 1rem;
+  }
+  .sb-close {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--chalk);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .sb-close svg {
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+  .sidebar .nav-item {
+    min-height: 2.75rem;
+  }
+  .sidebar .sb-footer {
+    display: flex;
+    flex-direction: column;
+    margin-top: auto;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--line);
+  }
+  .sidebar {
+    overscroll-behavior: contain;
+  }
+  html:has(.sidebar[data-open='true']) {
+    overflow: hidden;
+  }
+  .topbar-mobile {
+    gap: 0.75rem;
+  }
+}
+
+/* Collapsed rail: show the balance (number only) under the avatar */
+.sidebar[data-collapsed='true'] .sb-account-text {
+  position: static;
+  width: auto;
+  opacity: 1;
+  overflow: visible;
+}
+.sidebar[data-collapsed='true'] .sb-account-text > strong {
+  display: none;
+}
+.sidebar[data-collapsed='true'] .sb-account {
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.sidebar[data-collapsed='true'] .sb-credits {
+  align-self: center;
+}
+
+/* ================= Compact collapsed rail, clearer tooltips, one smooth timing for rail and content ================= */
+:root {
+  --sidebar-w-collapsed: 56px;
+  --rail-dur: 0.28s;
+}
+.body {
+  transition: grid-template-columns var(--rail-dur) var(--ease-out-soft);
+}
+.content {
+  transition: opacity var(--rail-dur) var(--ease-out-soft);
+}
+.sidebar {
+  transition: padding var(--rail-dur) var(--ease-out-soft);
+}
+.sidebar[data-collapsed='true'] {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+.sidebar[data-collapsed='true'] .nav-item {
+  height: 2.5rem;
+  border-radius: 8px;
+}
+.sidebar[data-collapsed='true'] .nav-item::after {
+  left: calc(100% + 14px);
+  padding: 0.4rem 0.7rem;
+  background: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition-delay: 0s;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  transform: translate(-6px, -50%);
+}
+.sidebar[data-collapsed='true'] .nav-item:hover::after,
+.sidebar[data-collapsed='true'] .nav-item:focus-visible::after {
+  transition-delay: 0.1s;
+}
+.sidebar[data-collapsed='true'] .nav-item::before {
+  content: '';
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  background: var(--ink);
+  transform: translate(0, -50%) rotate(45deg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
+}
+.sidebar[data-collapsed='true'] .nav-item:hover::before,
+.sidebar[data-collapsed='true'] .nav-item:focus-visible::before {
+  opacity: 1;
+  transition-delay: 0.1s;
+}
+.sidebar[data-collapsed='true'] .nav-item:hover::after,
+.sidebar[data-collapsed='true'] .nav-item:focus-visible::after {
+  transform: translate(0, -50%);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --rail-dur: 0.001s;
+  }
+}
+
+/* ================= iOS-style rail: flex layout, width animates on the rail, tooltips above content ================= */
+:root {
+  --ios-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --ios-dur: 0.38s;
+}
+@media (min-width: 901px) {
+  .body,
+  .body.sb-collapsed {
+    display: flex;
+    grid-template-columns: none;
+    transition: none;
+  }
+  .body > .content {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .sidebar {
+    flex: none;
+    width: var(--sidebar-w);
+    z-index: 999;
+    transition: width var(--ios-dur) var(--ios-ease), padding var(--ios-dur) var(--ios-ease);
+  }
+  .sidebar[data-collapsed='true'] {
+    width: var(--sidebar-w-collapsed);
+  }
+  .sidebar .nav-label,
+  .sidebar .sb-brand-text,
+  .sidebar .sb-account-text,
+  .sidebar .nav-title span {
+    transition: opacity var(--ios-dur) var(--ios-ease), transform var(--ios-dur) var(--ios-ease);
+  }
+  .sidebar[data-collapsed='true'] .nav-label,
+  .sidebar[data-collapsed='true'] .sb-brand-text,
+  .sidebar[data-collapsed='true'] .nav-title span {
+    transform: translateX(-6px);
+  }
+  .sidebar[data-collapsed='true'] .nav-item::after {
+    z-index: 999;
+    transition: opacity 0.2s var(--ios-ease), transform 0.2s var(--ios-ease);
+  }
+  .content {
+    transition: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ios-dur: 0.001s;
+  }
+}
+
+/* Collapsed rail: avatar and credit count share one centre line */
+.sidebar[data-collapsed='true'] .sb-account-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.sidebar[data-collapsed='true'] .sb-credits {
+  align-self: center;
+  margin: 0;
+  justify-content: center;
+}
+.sidebar[data-collapsed='true'] .sb-account {
+  align-items: center;
+}
+.sidebar[data-collapsed='true'] .sb-account-text {
+  width: 100%;
+}
+.sidebar[data-collapsed='true'] .sb-account-text {
+  margin: 0;
+  padding: 0;
+  transform: none;
+}
+
+/* Attached photos: show the whole photo, with a neutral backdrop where it letterboxes */
+.cattach-item img {
+  object-fit: contain;
+}
+.cattach-item .cattach-open {
+  background: var(--ds-surface);
+}
+
+/* Photo tray: role selector and soft warnings; result card: Fix this */
+.cattach-role {
+  display: block;
+  width: 6.5rem;
+  margin-top: 0.3rem;
+}
+.cattach-role select {
+  width: 100%;
+  padding: 0.2rem 0.3rem;
+  border: 1px solid var(--ds-line);
+  border-radius: 6px;
+  background: var(--ds-white);
+  color: var(--ds-ink);
+  font: inherit;
+  font-size: 0.7rem;
+}
+.cattach-warn {
+  display: block;
+  width: 6.5rem;
+  margin-top: 0.2rem;
+  color: var(--ds-warn);
+  font-size: 0.66rem;
+  line-height: 1.3;
+}
+.qa-fix {
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--ds-accent);
+  border-radius: 6px;
+  background: var(--ds-white);
+  color: var(--ds-accent-ink);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+
+/* Result card: a placeholder while the image loads, so the card shows at once */
+.preview-btn.is-loading {
+  min-height: 14rem;
+  background: linear-gradient(90deg, var(--ds-surface) 25%, var(--ds-paper) 50%, var(--ds-surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s linear infinite;
+}
+.preview-btn.is-loading img {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .preview-btn.is-loading {
+    animation: none;
+  }
+}
+
+/* Result feedback: good / needs a fix, then the fixes to regenerate with */
+.fb {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.fb-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.fb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2.2rem;
+  padding: 0 0.8rem;
+  border: 1px solid var(--ds-line);
+  border-radius: 6px;
+  background: var(--ds-white);
+  color: var(--ds-ink);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.fb-btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+.fb-btn.on {
+  border-color: var(--ds-accent);
+  color: var(--ds-accent-ink);
+}
+.fb-panel {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--ds-line);
+  border-radius: 8px;
+  background: var(--ds-surface);
+}
+.fb-q {
+  margin: 0;
+  font-weight: 600;
+}
+.fb-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.fb-chip {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--ds-line);
+  border-radius: 999px;
+  background: var(--ds-white);
+  color: var(--ds-ink-2);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.fb-chip.on {
+  border-color: var(--ds-accent);
+  background: var(--ds-accent-wash);
+  color: var(--ds-accent-ink);
+}
+.fb-note {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--ds-line);
+  border-radius: 6px;
+  background: var(--ds-white);
+  font: inherit;
+  font-size: 0.86rem;
+}
+.fb-thanks {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--ds-ink-2);
+}
+
+/* AI Studio on phones and small screens: smaller type, tighter cards, smaller photo tiles */
+@media (max-width: 640px) {
+  .chat-hero {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+  .chat-hero .avatar.hero-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+  .chat-hero h3 {
+    font-size: 1.05rem;
+  }
+  .chat-hero p {
+    font-size: 0.82rem;
+  }
+  .quick-actions {
+    gap: 0.5rem;
+  }
+  .qa-card {
+    padding: 0.6rem 0.7rem;
+    gap: 0.5rem;
+  }
+  .qa-icon {
+    width: 2rem;
+    height: 2rem;
+  }
+  .qa-text strong,
+  .qa-text b {
+    font-size: 0.85rem;
+  }
+  .qa-text small,
+  .qa-text span {
+    font-size: 0.72rem;
+  }
+  .chat-head h2 {
+    font-size: 0.95rem;
+  }
+  .chat-head p,
+  .chat-status {
+    font-size: 0.72rem;
+  }
+  .bubble {
+    font-size: 0.88rem;
+    line-height: 1.45;
+  }
+  .bubble.result .gen-time,
+  .gen-time {
+    font-size: 0.7rem;
+  }
+  .cattach-item,
+  .cattach-add {
+    width: 5rem;
+    height: 5rem;
+  }
+  .cattach-thumb,
+  .cattach-thumb .cattach-open,
+  .cattach-item .cattach-open {
+    width: 5rem;
+    height: 5rem;
+  }
+  .cattach-chip {
+    font-size: 0.6rem;
+  }
+  .fb-btn {
+    height: 2rem;
+    font-size: 0.8rem;
+  }
+}
+@media (max-width: 380px) {
+  .qa-card {
+    padding: 0.5rem;
+  }
+  .bubble {
+    font-size: 0.82rem;
+  }
+}
+@media (max-width: 640px) {
+  .quick-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .qa-card {
+    min-height: 0;
+  }
+}
+
+/* Scrollbars: thin, rounded, in the app palette (Firefox and WebKit: Chrome, Edge, Safari) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c5cdd7 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: #c5cdd7;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--ds-ink-2);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Feedback sits in the same row as Edit and Download; the reason panel wraps to its own full-width line */
+.rb-actions .fb {
+  display: contents;
+}
+.rb-actions .fb-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-right: auto;
+}
+.rb-actions .fb-btn {
+  height: 2.2rem;
+  padding: 0 0.9rem;
+  font-size: 0.86rem;
+}
+.rb-actions .fb-panel,
+.rb-actions .fb-thanks {
+  flex-basis: 100%;
+  order: 10;
+}
+.rb-actions .fb-thanks {
+  margin-top: 0.25rem;
+  text-align: right;
+}
+@media (max-width: 520px) {
+  .rb-actions .fb-row {
+    width: 100%;
+    margin-right: 0;
+  }
+  .rb-actions .fb-row .fb-btn {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+}
+
+/* AI Studio loading placeholder: same layout as the chat, with a soft shimmer */
+.chat-skel {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 150px);
+  min-height: 520px;
+  background: var(--ds-white);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.chat-skel-head,
+.chat-skel-composer {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--ds-line);
+}
+.chat-skel-composer {
+  margin-top: auto;
+  border-top: 1px solid var(--ds-line);
+  border-bottom: 0;
+}
+.chat-skel-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem 1rem;
+}
+.chat-skel-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  max-width: 70%;
+}
+.chat-skel-msg.me {
+  align-self: flex-end;
+}
+.chat-skel-bubble {
+  flex: 1;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 10px;
+  background: var(--ds-surface);
+}
+.chat-skel-lines {
+  display: grid;
+  gap: 0.4rem;
+  flex: 1;
+}
+.chat-skel-dot {
+  width: 2.2rem;
+  height: 2.2rem;
+  flex: none;
+  border-radius: 50%;
+}
+.chat-skel-dot.sm {
+  width: 1.8rem;
+  height: 1.8rem;
+}
+.chat-skel-line {
+  display: block;
+  height: 0.7rem;
+  border-radius: 4px;
+}
+.chat-skel-line.w-24 { width: 24%; }
+.chat-skel-line.w-40 { width: 40%; }
+.chat-skel-line.w-50 { width: 50%; }
+.chat-skel-line.w-60 { width: 60%; }
+.chat-skel-line.w-70 { width: 70%; }
+.chat-skel-dot,
+.chat-skel-line,
+.chat-skel-bubble {
+  background: linear-gradient(90deg, var(--ds-surface) 25%, var(--ds-paper) 50%, var(--ds-surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s linear infinite;
+}
+.chat-skel-composer .chat-skel-line {
+  height: 0.9rem;
+}
+@media (max-width: 640px) {
+  .chat-skel-msg {
+    max-width: 88%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-skel-dot,
+  .chat-skel-line,
+  .chat-skel-bubble {
+    animation: none;
+  }
+}
+
+/* Accessibility pass: AI label, consent, disclosure, touch targets */
+
+/* Result images carry a visible "AI-generated" label (AI Act transparency) */
+.preview-btn {
+  position: relative;
+}
+.ai-tag {
+  position: absolute;
+  left: 0.5rem;
+  bottom: 0.5rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(14, 26, 43, 0.82);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+}
+
+/* Photo consent, shown before the first upload */
+.consent {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 0.6rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--ds-line);
+  border-radius: 8px;
+  background: var(--ds-white);
+  color: var(--ds-ink);
+  box-shadow: var(--ds-shadow-sm);
+  font-size: 0.9rem;
+}
+.consent p {
+  margin: 0;
+}
+.consent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.consent-actions button {
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.consent-no {
+  border: 1px solid var(--ds-line);
+  background: var(--ds-white);
+  color: var(--ds-ink);
+}
+.consent-yes {
+  border: 1px solid var(--ds-accent);
+  background: var(--ds-accent);
+  color: #fff;
+}
+.consent-actions button:focus-visible {
+  outline: 3px solid var(--marker-ink);
+  outline-offset: 2px;
+}
+
+/* Targets: at least 24px everywhere, 44px on touch screens */
+.icon-btn,
+.csend,
+.cbtn,
+.sb-toggle,
+.sb-signout,
+.sb-close,
+.nav-toggle,
+.rso-close,
+.pp-close,
+.lb-btn,
+.session-del,
+.edit-chip-x,
+.cattach-remove,
+.credit-chip,
+.fb-btn {
+  min-width: 24px;
+  min-height: 24px;
+}
+@media (pointer: coarse) {
+  .icon-btn,
+  .csend,
+  .cbtn,
+  .sb-toggle,
+  .sb-signout,
+  .sb-close,
+  .nav-toggle,
+  .rso-close,
+  .pp-close,
+  .lb-btn,
+  .session-del,
+  .edit-chip-x,
+  .credit-chip,
+  .fb-btn,
+  .nav-item {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Sidebar credit button: at least 24px tall, 44px on touch screens */
+.sb-credits {
+  min-height: 24px;
+}
+@media (pointer: coarse) {
+  .sb-credits {
+    min-height: 44px;
+  }
+}
+
+/* Show/hide password: 44px on touch screens */
+@media (pointer: coarse) {
+  .login-form button[aria-label$="password"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Touch: consent buttons and suggestion chips at least 44px */
+@media (pointer: coarse) {
+  .consent-actions button,
+  .ctags button {
+    min-height: 44px;
+  }
+}
+
+/* Touch: result actions, feedback chips, quality badge and the jump pill at least 44px */
+@media (pointer: coarse) {
+  .rb-btn,
+  .fb-chip,
+  .qa-badge,
+  .jump {
+    min-height: 44px;
+  }
+}
+
+/* Touch: text fields and the sidebar items at least 44px */
+@media (pointer: coarse) {
+  .fb-note,
+  input[placeholder="Search chats…"],
+  .sidebar .nav-item {
+    min-height: 44px;
+  }
+}
+
+/* The result image is the tag's container (the bubble rule resets position with all: unset) */
+.bubble.result .preview-btn {
+  position: relative;
+}
+.bubble.result .ai-tag {
+  position: absolute;
+  left: 0.5rem;
+  bottom: 0.5rem;
+}
+
+/* Button labels stay on one line on touch screens */
+@media (pointer: coarse) {
+  .fb-btn,
+  .rb-btn {
+    white-space: nowrap;
+  }
 }

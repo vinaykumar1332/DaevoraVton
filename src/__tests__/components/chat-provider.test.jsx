@@ -12,7 +12,7 @@ vi.mock('@/api/backend.js', () => ({
   backendChatTurn: vi.fn(),
   backendStartAgentJob: vi.fn(),
   backendEnhanceRequest: vi.fn(),
-  backendScoreLook: vi.fn(() => new Promise(() => {})),
+  backendScoreLook: vi.fn(async () => ({ match: 95, areas: { face: 95, pose: 95, garment: 95, colour: 95, background: 95, accessories: 95 }, problems: [], pass: true })),
 }));
 vi.mock('@/api/fashn.js', () => ({
   downloadImage: vi.fn(async () => true),

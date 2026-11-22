@@ -8,9 +8,10 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { notify } from '@/lib/notify.js';
+import { formatDay } from '@/lib/format.js';
 import { BOT_NAME } from '@/lib/bot.js';
 import Lightbox from '@/components/common/Lightbox.jsx';
-import PageLoader from '@/components/common/PageLoader.jsx';
+import ChatSkeleton from './ChatSkeleton.jsx';
 import FittingLoader from '@/components/common/FittingLoader.jsx';
 import { downloadImage } from '@/api/fashn.js';
 import { prepareFile } from '@/lib/imageIntake.js';
@@ -62,9 +63,57 @@ function useElapsed(startedAt) {
 }
 
 /** Short tags for a photo's analysis, shown in the preview. */
+const PHOTO_ROLES = [
+  ['model', 'Model'],
+  ['garment', 'Garment'],
+  ['shoes', 'Shoes'],
+  ['accessory', 'Accessory'],
+  ['background', 'Background'],
+  ['pose', 'Pose'],
+  ['logo', 'Logo'],
+  ['other', 'Other'],
+];
+
+/** Soft warnings under a photo. The user can still send it; these only point out likely problems. */
+export function photoWarnings(meta, text = '', size = null) {
+  const out = [];
+  if (size && Math.min(size.w, size.h) < 768) out.push('Small photo: under 768 px. The result may be softer.');
+  if (meta?.role === 'model' && meta.shot && meta.shot !== 'full_body' && /full[\s-]?body|head to (toe|feet)/i.test(text)) {
+    out.push('This photo is not full body, but your request asks for a full body.');
+  }
+  if (meta?.role === 'garment' && meta.unclear) out.push(`Not visible: ${String(meta.unclear).slice(0, 80)}`);
+  if (meta?.role === 'garment' && meta.view === 'back') out.push('Only the back of this garment is visible.');
+  return out;
+}
+
+const SHOT_LABEL = { full_body: 'full body', cropped_head: 'head cropped', three_quarter: 'knees up', half_body: 'half body', close_up: 'close-up' };
+const LENGTH_LABEL = { upper: 'top', lower: 'bottom', full: 'full length' };
+
+/** Short labels shown under a photo: a model shows gender, pose and shot; a garment shows type, colour and length. */
 function tagsOf(meta) {
   if (!meta) return [];
-  return [meta.role, meta.type, meta.color, meta.fabric, meta.view, meta.pattern, meta.logo ? 'logo' : null].filter(Boolean);
+  const known = (v) => v && v !== 'unknown';
+  if (meta.role === 'model') return [meta.person === 'mannequin' ? 'mannequin' : null, known(meta.gender) ? meta.gender : null, meta.pose, SHOT_LABEL[meta.shot]].filter(Boolean);
+  if (meta.role === 'garment') return [meta.type, meta.color, LENGTH_LABEL[meta.length]].filter(Boolean);
+  return [meta.role, meta.type, meta.color].filter(Boolean);
+}
+
+// Photo consent is remembered per browser, so people are asked once before their first upload.
+const CONSENT_COOKIE = 'fr_photo_consent';
+function readConsent() {
+  try {
+    return document.cookie.split('; ').some((c) => c === `${CONSENT_COOKIE}=1`);
+  } catch {
+    return false; // cookies blocked: ask again next time
+  }
+}
+function writeConsent() {
+  try {
+    const secure = location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${CONSENT_COOKIE}=1; Max-Age=31536000; Path=/; SameSite=Lax${secure}`;
+  } catch {
+    /* cookies blocked: the consent is only kept for this visit */
+  }
 }
 
 // Quick-start cards for an empty chat. Each one either fills the composer or opens an existing page.
@@ -92,11 +141,13 @@ function QuickActions({ onPick, onOpenPage }) {
 }
 
 export default function ChatStudio({ onNavigate }) {
-  const { state, active, run, send, runTool, resend, regenerate, stop, newChat, selectChat, deleteChat } = useChat();
+  const { state, active, run, send, runTool, resend, regenerate, regenerateWith, setFeedback, stop, newChat, selectChat, deleteChat } = useChat();
   const [pending, setPending] = useState([]); // photos attached to the message being written
   const [photoMeta, setPhotoMeta] = useState({}); // { [photoId]: analysis } — populated async on upload
+  const [photoSizes, setPhotoSizes] = useState({}); // { [photoId]: { w, h } } read when each thumbnail loads
   const [preview, setPreview] = useState(null); // { src, alt, tags } for the shared photo preview
   const closePreview = useCallback(() => setPreview(null), []);
+  const setPhotoRole = (id, role) => setPhotoMeta((m) => ({ ...m, [id]: { ...m[id], role_user: role, role } }));
   const [editOn, setEditOn] = useState(true); // the next message changes the last look (same image, same resolution)
   const [input, setInput] = useState('');
   const [enhancing, setEnhancing] = useState(false);
@@ -105,6 +156,23 @@ export default function ChatStudio({ onNavigate }) {
   const [atBottom, setAtBottom] = useState(true);
   const logRef = useRef(null);
   const fileRef = useRef(null);
+  const [consented, setConsented] = useState(readConsent);
+  const [askConsent, setAskConsent] = useState(false);
+  const waitingFiles = useRef(null); // photos picked before the user agreed, added once they do
+  // Opens the file picker, or asks for consent first.
+  function openPicker() {
+    if (!consented) return setAskConsent(true);
+    fileRef.current?.click();
+  }
+  function agreeToPhotos() {
+    writeConsent();
+    setConsented(true);
+    setAskConsent(false);
+    const files = waitingFiles.current;
+    waitingFiles.current = null;
+    if (files) addFiles(files, { agreed: true });
+    else fileRef.current?.click();
+  }
   const taRef = useRef(null);
 
   const busy = !!run; // one job at a time, in any chat
@@ -139,11 +207,16 @@ export default function ChatStudio({ onNavigate }) {
     t.style.height = `${Math.min(t.scrollHeight, 320)}px`;
   }, [input]);
 
-  if (!state.loaded || !active) return <PageLoader />;
+  if (!state.loaded || !active) return <ChatSkeleton />;
 
-  async function addFiles(fileList) {
+  async function addFiles(fileList, { agreed = false } = {}) {
     const files = [...(fileList ?? [])];
     if (!files.length) return;
+    if (!consented && !agreed) {
+      waitingFiles.current = files;
+      setAskConsent(true);
+      return;
+    }
     const room = MAX_PHOTOS - pending.length;
     if (room <= 0) return notify({ severity: 'warn', summary: 'Photos', detail: `You can attach up to ${MAX_PHOTOS} photos per message.` });
     const results = await Promise.allSettled(files.slice(0, room).map((f) => prepareFile(f)));
@@ -266,6 +339,9 @@ export default function ChatStudio({ onNavigate }) {
               onOpen={(images, index) => setLightbox({ images, index })}
               onTool={(tool, src, opts) => runTool(active.id, { tool, src, ...opts })}
               onRegenerate={() => regenerate(active.id, m.id)}
+              onFeedback={(feedback) => setFeedback(active.id, m.id, feedback)}
+              onRegenerateWith={(fixes) => regenerateWith(active.id, m.id, fixes)}
+              onFix={(detail) => send(active.id, `Fix: ${detail}`, [], photoMeta, { url: m.images[0], prompt: m.prompt, resolution: m.resolution })}
               onAttach={attachResult}
               onResend={(text) => {
                 setAtBottom(true);
@@ -344,26 +420,53 @@ export default function ChatStudio({ onNavigate }) {
             </div>
           )}
 
+          {askConsent && (
+            <section className="consent" aria-labelledby="consent-title">
+              <p id="consent-title"><b>Before you add photos</b></p>
+              <p>
+                Photos you add are sent to our AI providers to make your look. Only add photos you have the right to use, and only of people who have agreed to this.
+              </p>
+              <div className="consent-actions">
+                <button type="button" className="consent-no" onClick={() => { waitingFiles.current = null; setAskConsent(false); }}>Not now</button>
+                <button type="button" className="consent-yes" onClick={agreeToPhotos}>I agree, add photos</button>
+              </div>
+            </section>
+          )}
+
           <div className={`cbox ${busy ? 'is-busy' : ''}`}>
             {pending.length > 0 && (
               <div className="cattach" role="group" aria-label={`${pending.length} of ${MAX_PHOTOS} photos attached`}>
                 {pending.map((p, i) => {
                   const meta = photoMeta[p.id];
-                  const tags = meta ? [meta.type, meta.color, meta.view].filter(Boolean) : null;
+                  const tags = meta ? tagsOf(meta).slice(0, 3) : null;
                   return (
                     <div className="cattach-item" key={p.id}>
-                      <button type="button" className="cattach-open" onClick={() => setPreview({ src: p.src, alt: `Attached photo ${i + 1}`, tags: tagsOf(meta) })} aria-label={`Preview attached photo ${i + 1}`}>
-                        <img src={p.src} alt="" />
-                      </button>
-                      {tags ? (
-                        <div className="cattach-tags" aria-label="Detected">
-                          {tags.map((t) => <span key={t} className="cattach-tag">{t}</span>)}
-                        </div>
-                      ) : (
-                        <div className="cattach-tags cattach-tags--analyzing" aria-label="Analyzing">
-                          <Loader2 className="cattach-spin" aria-hidden="true" />
-                        </div>
-                      )}
+                      <div className="cattach-thumb">
+                        <button type="button" className="cattach-open" onClick={() => setPreview({ src: p.src, alt: `Attached photo ${i + 1}`, tags: tagsOf(meta), photoId: p.id })} aria-label={`Preview attached photo ${i + 1}`}>
+                          <img
+                            src={p.src}
+                            alt=""
+                            onLoad={(e) => {
+                              const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+                              setPhotoSizes((s) => ({ ...s, [p.id]: { w, h } }));
+                            }}
+                          />
+                        </button>
+                        {tags ? (
+                          <div className="cattach-overlay" aria-label={tags.join(', ')}>
+                            {tags.slice(0, 1).map((t) => (
+                              <span key={t} className="cattach-chip">
+                                {t}
+                              </span>
+                            ))}
+                            {tagsOf(meta).length > 1 && <span className="cattach-chip cattach-more">+{tagsOf(meta).length - 1}</span>}
+                          </div>
+                        ) : (
+                          <div className="cattach-overlay cattach-overlay--analyzing" aria-label="Analysing">
+                            <Loader2 className="cattach-spin" aria-hidden="true" />
+                          </div>
+                        )}
+                      </div>
                       <button type="button" className="cattach-remove" aria-label={`Remove attached photo ${i + 1}`} onClick={() => setPending((x) => x.filter((y) => y.id !== p.id))}>
                         <X aria-hidden="true" />
                       </button>
@@ -371,7 +474,7 @@ export default function ChatStudio({ onNavigate }) {
                   );
                 })}
                 {pending.length < MAX_PHOTOS && (
-                  <button type="button" className="cattach-add" aria-label="Attach more photos" onClick={() => fileRef.current?.click()} disabled={busy}>
+                  <button type="button" className="cattach-add" aria-label="Attach more photos" onClick={openPicker} disabled={busy}>
                     <Plus aria-hidden="true" />
                   </button>
                 )}
@@ -412,7 +515,7 @@ export default function ChatStudio({ onNavigate }) {
                 className="cbtn"
                 aria-label="Attach photos"
                 data-tip={editOn && active.lastResult ? 'Add photos to the last look' : 'Attach photos'}
-                onClick={() => fileRef.current?.click()}
+                onClick={openPicker}
                 disabled={busy || pending.length >= MAX_PHOTOS}
               >
                 <Paperclip aria-hidden="true" />
@@ -447,7 +550,18 @@ export default function ChatStudio({ onNavigate }) {
           />
         </div>
 
-        {preview && <PhotoPreview src={preview.src} alt={preview.alt} tags={preview.tags} onClose={closePreview} />}
+        {preview && (
+          <PhotoPreview
+            src={preview.src}
+            alt={preview.alt}
+            tags={preview.tags}
+            onClose={closePreview}
+            roleValue={photoMeta[preview.photoId]?.role_user ?? photoMeta[preview.photoId]?.role ?? 'other'}
+            roleOptions={PHOTO_ROLES}
+            onRoleChange={(role) => setPhotoRole(preview.photoId, role)}
+            warnings={photoWarnings(photoMeta[preview.photoId], input, photoSizes[preview.photoId])}
+          />
+        )}
         {lightbox && (
           <Lightbox
             images={lightbox.images}
@@ -466,7 +580,7 @@ function timeAgo(ts) {
   if (s < 60) return 'just now';
   if (s < 3600) return `${Math.floor(s / 60)} min ago`;
   if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
-  return new Date(ts).toLocaleDateString();
+  return formatDay(ts);
 }
 
 /**
@@ -567,10 +681,10 @@ function SessionMenu({ state, run, onSelect, onDelete }) {
   );
 }
 
-function Message({ m, busy, onOpen, onTool, onRegenerate, onAttach, onResend }) {
+function Message({ m, busy, onOpen, onTool, onRegenerate, onAttach, onResend, onFix, onFeedback, onRegenerateWith }) {
   if (m.role === 'user') return <UserMessage m={m} busy={busy} onOpen={onOpen} onResend={onResend} />;
 
-  if (m.role === 'result') return <ResultBubble m={m} onOpen={onOpen} onTool={onTool} onRegenerate={onRegenerate} onAttach={onAttach} busy={busy} />;
+  if (m.role === 'result') return <ResultBubble m={m} onOpen={onOpen} onTool={onTool} onRegenerate={onRegenerate} onAttach={onAttach} onFix={onFix} onFeedback={onFeedback} onRegenerateWith={onRegenerateWith} busy={busy} />;
 
   return (
     <div className="msg bot">

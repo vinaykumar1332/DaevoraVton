@@ -1,5 +1,6 @@
 ﻿import { notify } from '@/lib/notify.js';
-import { Download, Pencil, X } from 'lucide-react';
+import { Download, Pencil, ThumbsDown, ThumbsUp, X } from 'lucide-react';
+import { Button } from '@/components/ui/button.jsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { renderImage, RATIOS, FORMATS, DEFAULT_SETTINGS } from '@/lib/imageTools.js';
@@ -19,9 +20,10 @@ const RESOLUTIONS = [
  * A generated image: live preview, quick tools, the full tools overlay, and download.
  * onTool(tool, src, opts) runs a dedicated module on this image ('upscale' | 'remove_background').
  */
-export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach, busy = false }) {
+export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach, onFix, onFeedback, onRegenerateWith, busy = false }) {
   const [s, setS] = useState(DEFAULT_SETTINGS);
   const [preview, setPreview] = useState(null);
+  const [imgReady, setImgReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [expired, setExpired] = useState(false);
   const [open, setOpen] = useState(false);
@@ -127,11 +129,12 @@ export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach
         ) : (
           <button
             type="button"
-            className="preview-btn"
+            className={`preview-btn ${imgReady ? '' : 'is-loading'}`}
             onClick={() => (m.used?.length ? setCmpOpen(true) : onOpen(m.images, 0))}
             aria-label={m.used?.length ? 'Compare before and after' : 'Open image full screen'}
           >
-            <img src={preview ?? src} alt="Your look" className={preview ? 'ready' : 'loading'} onError={() => !preview && setExpired(true)} />
+            <img src={preview ?? src} alt="Your look" className={preview ? 'ready' : 'loading'} loading="eager" decoding="async" onLoad={() => setImgReady(true)} onError={() => !preview && setExpired(true)} />
+            <span className="ai-tag">AI-generated</span>
           </button>
         )}
         {m.images.length > 1 && <small className="muted">Showing 1 of {m.images.length}. Download saves all of them.</small>}
@@ -144,6 +147,7 @@ export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach
 
         {!expired && (
           <div className="rb-actions">
+            {!expired && onFeedback && <FeedbackBar feedback={m.feedback} busy={busy} onFeedback={onFeedback} onRegenerateWith={onRegenerateWith} />}
             <button type="button" className="rb-btn rb-btn-primary" onClick={() => setOpen(true)} aria-haspopup="dialog">
               <Pencil aria-hidden="true" />
               Edit
@@ -242,7 +246,7 @@ export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach
                   <ol className="qa-problems">
                     {m.score.problems.map((p, i) => (
                       <li key={i}>
-                        <b>{QA_AREA_LABEL[p.area] ?? p.area}.</b> {p.detail} <small className="muted">{QA_SOURCE_LABEL[p.source] ?? ''}</small>
+                        <b>{QA_AREA_LABEL[p.area] ?? p.area}.</b> {p.detail} <small className="muted">{QA_SOURCE_LABEL[p.source] ?? ''}</small>{onFix && (<button type="button" className="qa-fix" disabled={busy} onClick={() => { setQaOpen(false); onFix(p.detail); }}>Fix this</button>)}
                       </li>
                     ))}
                   </ol>
@@ -373,6 +377,51 @@ export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach
           )}
 
       </div>
+    </div>
+  );
+}
+
+const FIX_REASONS = ['Wrong garment', 'Extra garment added', 'Wrong pose', 'Wrong colour', 'Face or body changed', 'Wrong framing'];
+
+/** Thumbs up or down on a result. Thumbs down asks what is wrong, then regenerates with those fixes. */
+function FeedbackBar({ feedback, busy, onFeedback, onRegenerateWith }) {
+  const [open, setOpen] = useState(false);
+  const [reasons, setReasons] = useState([]);
+  const [note, setNote] = useState('');
+  const toggle = (r) => setReasons((x) => (x.includes(r) ? x.filter((y) => y !== r) : [...x, r]));
+  const extra = note.trim();
+  return (
+    <div className="fb">
+      <div className="fb-row" role="group" aria-label="Rate this look">
+        <button type="button" className={`fb-btn ${feedback?.rating === 'up' ? 'on' : ''}`} aria-pressed={feedback?.rating === 'up'} onClick={() => { setOpen(false); onFeedback({ rating: 'up', reasons: [], note: '' }); }}>
+          <ThumbsUp aria-hidden="true" /> Good
+        </button>
+        <button type="button" className={`fb-btn ${feedback?.rating === 'down' || open ? 'on' : ''}`} aria-pressed={open} onClick={() => setOpen((o) => !o)}>
+          <ThumbsDown aria-hidden="true" /> Needs a fix
+        </button>
+      </div>
+      {open && (
+        <div className="fb-panel">
+          <p className="fb-q">What is wrong?</p>
+          <div className="fb-reasons">
+            {FIX_REASONS.map((r) => (
+              <button key={r} type="button" className={`fb-chip ${reasons.includes(r) ? 'on' : ''}`} aria-pressed={reasons.includes(r)} onClick={() => toggle(r)}>
+                {r}
+              </button>
+            ))}
+          </div>
+          <input className="fb-note" value={note} maxLength={200} placeholder="Anything else? (optional)" aria-label="Anything else about this look (optional)" onChange={(e) => setNote(e.target.value)} />
+          <Button type="button" variant="primary" disabled={busy || (reasons.length === 0 && !extra)} onClick={() => {
+            const fixes = [...reasons, extra].filter(Boolean).join('; ');
+            onFeedback({ rating: 'down', reasons, note: extra });
+            setOpen(false);
+            onRegenerateWith?.(fixes);
+          }}>
+            Regenerate with these fixes
+          </Button>
+        </div>
+      )}
+      {feedback?.rating === 'up' && <p className="fb-thanks">Thanks for the feedback.</p>}
     </div>
   );
 }

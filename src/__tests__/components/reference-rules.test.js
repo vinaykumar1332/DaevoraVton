@@ -7,8 +7,13 @@ describe('decideReferences', () => {
     expect(decideReferences({ use_photos: [3], use_previous: true }, base)).toEqual({ usePhotos: [3], usePrevious: true });
   });
 
-  it('always includes the new photo, even when the assistant left it out', () => {
-    expect(decideReferences({ use_photos: [1], use_previous: false }, base).usePhotos).toEqual([1, 3]);
+  it('a new photo the assistant left out is not sent when it listed other photos', () => {
+    expect(decideReferences({ use_photos: [1], use_previous: false }, base).usePhotos).toEqual([1]);
+  });
+
+  it('a new photo is sent when the assistant listed no photos and the photo has a role', () => {
+    const facts = [{ photo: 3, role: 'garment' }];
+    expect(decideReferences({ use_photos: [] }, { ...base, facts }).usePhotos).toEqual([3]);
   });
 
   it('never uses the previous result without one', () => {

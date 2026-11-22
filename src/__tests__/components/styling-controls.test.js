@@ -30,13 +30,13 @@ describe('styling controls', () => {
     expect(out).toMatch(/Remove a belt from the image/);
   });
 
-  it('keeps visible accessories and the background of the model photo', () => {
+  it('keeps visible accessories (in the identity block) and the background of the model photo', () => {
     const out = buildPrompt({ prompt: 'P', notes: person, usePhotos: [1] });
-    expect(out).toMatch(/Keep any accessories visible on the person/);
+    expect(out).toMatch(/Keep any accessories they wear visible and unchanged/);
     expect(out).toMatch(/Keep the original background and lighting/);
   });
 
-  it('adds colour and light rules when garments are used', () => {
-    expect(buildPrompt({ prompt: 'P', notes: shirt, usePhotos: [2] })).toMatch(/Keep colours true to the photos/);
+  it('colour and light rules come from the scene block', () => {
+    expect(buildPrompt({ prompt: 'P', notes: shirt, usePhotos: [2] })).toMatch(/true colours with no colour shift/);
   });
 });

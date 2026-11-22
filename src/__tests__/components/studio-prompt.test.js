@@ -1,11 +1,17 @@
-import { buildPrompt, normalizeNotes, normalizeView, HOUSE_RULES } from '@/agents/studioPrompt.js';
+import { buildPrompt, normalizeNotes, normalizeView, HOUSE_RULES, GARMENT_RULES, SCENE_RULES } from '@/agents/studioPrompt.js';
 
 const P = 'The model in image 1 wears the saree from image 2.';
 
 describe('buildPrompt', () => {
-  it('always adds the house rules after the assistant prompt', () => {
+  it('always adds the garment and scene rules after the assistant prompt', () => {
     const out = buildPrompt({ prompt: P });
     expect(out.startsWith(P)).toBe(true);
+    expect(out).toContain(GARMENT_RULES);
+    expect(out).toContain(SCENE_RULES);
+  });
+
+  it('adds the identity rules when a model photo is kept, and the full house rules', () => {
+    const out = buildPrompt({ prompt: P, notes: [{ photo: 1, role: 'model', view: 'front' }], usePhotos: [1] });
     expect(out).toContain(HOUSE_RULES);
   });
 

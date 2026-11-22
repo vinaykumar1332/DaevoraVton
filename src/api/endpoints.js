@@ -26,11 +26,6 @@ export const FASHN_STATUS        = (id) => `${RENDER}/v1/status/${encodeURICompo
 export const FASHN_AGENT_RUN     = `${RENDER}/v1/agent/images/run`;
 export const FASHN_AGENT_STATUS  = (id) => `${RENDER}/v1/agent/status/${encodeURIComponent(id)}`;
 
-// --- Assist service proxy (Vite dev proxy / Vercel rewrite → api/assist.js) ---
-const ASSIST = '/api/assist';
-export const OPENAI_CHAT         = `${ASSIST}/v1/chat/completions`;
-export const OPENAI_IMAGE_EDIT   = `${ASSIST}/v1/images/edits`;
-
 // --- FASHN CDN passthrough (images served through this app to avoid CORS) ---
 export const CDN_BASE   = '/cdn';
 export const MEDIA_BASE = '/media';

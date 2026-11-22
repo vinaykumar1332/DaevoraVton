@@ -1,0 +1,499 @@
+{
+  "_about": "Evaluation cases. Image paths are placeholders: replace them with real photos in eval/images/. 'assumed' is what the vision model is expected to say for each photo, used by the offline check. 'expect.rules' are regular expressions that must match the engine prompt.",
+  "cases": [
+    {
+      "id": "saree-on-model",
+      "title": "Saree on a model",
+      "inputs": [
+        {
+          "file": "eval/images/saree-model.jpg",
+          "role": "model"
+        },
+        {
+          "file": "eval/images/saree.jpg",
+          "role": "garment"
+        }
+      ],
+      "userText": "Dress the model in the saree.",
+      "prompt": "The model wears the saree from image 2.",
+      "usePhotos": [
+        1,
+        2
+      ],
+      "usePrevious": false,
+      "outputView": "front",
+      "styling": {},
+      "assumed": [
+        {
+          "photo": 1,
+          "role": "model",
+          "view": "front",
+          "framing": "full"
+        },
+        {
+          "photo": 2,
+          "role": "garment",
+          "view": "front",
+          "length": "full",
+          "fabric": "silk"
+        }
+      ],
+      "expect": {
+        "rules": [
+          "Keep the framing of the model photo",
+          "Keep the pose of the person exactly"
+        ]
+      }
+    },
+    {
+      "id": "lehenga-on-model",
+      "title": "Lehenga on a model",
+      "inputs": [
+        {
+          "file": "eval/images/lehenga-model.jpg",
+          "role": "model"
+        },
+        {
+          "file": "eval/images/lehenga.jpg",
+          "role": "garment"
+        }
+      ],
+      "userText": "Put this lehenga on her.",
+      "prompt": "The model wears the lehenga from image 2.",
+      "usePhotos": [
+        1,
+        2
+      ],
+      "usePrevious": false,
+      "outputView": "front",
+      "styling": {},
+      "assumed": [
+        {
+          "photo": 1,
+          "role": "model",
+          "view": "front",
+          "framing": "partial"
+        },
+        {
+          "photo": 2,
+          "role": "garment",
+          "view": "front",
+          "length": "full",
+          "pattern": "embroidered border"
+        }
+      ],
+      "expect": {
+        "rules": [
+          "Keep the framing of the model photo",
+          "Garment in image 2"
+        ]
+      }
+    },
+    {
+      "id": "shirt-jeans-untucked",
+      "title": "Shirt and jeans, untucked",
+      "inputs": [
+        {
+          "file": "eval/images/model-standing.jpg",
+          "role": "model"
+        },
+        {
+          "file": "eval/images/shirt.jpg",
+          "role": "garment"
+        },
+        {
+          "file": "eval/images/jeans.jpg",
+          "role": "garment"
+        }
+      ],
+      "userText": "Shirt and jeans, shirt untucked.",
+      "prompt": "The model wears the shirt from image 2 and the jeans from image 3.",
+      "usePhotos": [
+        1,
+        2,
+        3
+      ],
+      "usePrevious": false,
+      "outputView": "front",
+      "styling": {},
+      "assumed": [
+        {
+          "photo": 1,
+          "role": "model",
+          "view": "front",
+          "framing": "partial"
+        },
+        {
+          "photo": 2,
+          "role": "garment",
+          "view": "front",
+          "length": "upper"
+        },
+        {
+          "photo": 3,
+          "role": "garment",
+          "view": "front",
+          "length": "lower"
+        }
+      ],
+      "expect": {
+        "rules": [
+          "wear it untucked"
+        ]
+      }
+    },
+    {
+      "id": "back-view",
+      "title": "Back view from a front-only garment",
+      "inputs": [
+        {
+          "file": "eval/images/model-back.jpg",
+          "role": "model"
+        },
+        {
+          "file": "eval/images/dress-front.jpg",
+          "role": "garment"
+        }
+      ],
+      "userText": "Show the back of the dress.",
+      "prompt": "Show the back view of the dress on the model.",
+      "usePhotos": [
+        1,
+        2
+      ],
+      "usePrevious": false,
+      "outputView": "back",
+      "styling": {},
+      "assumed": [
+        {
+          "photo": 1,
+          "role": "model",
+          "view": "back",
+          "framing": "full"
+        },
+        {
+          "photo": 2,
+          "role": "garment",
+          "view": "front",
+          "length": "full"
+        }
+      ],
+      "expect": {
+        "rules": [
+          "Final framing: back view",
+          "work out the unseen back"
+        ]
+      }
+    },
+    {
+      "id": "head-cut-off",
+      "title": "Model photo with the head cut off",
+      "inputs": [
+        {
+          "file": "eval/images/model-cropped.jpg",
+          "role": "model"
+        },
+        {
+          "file": "eval/images/top.jpg",
+          "role": "garment"
+        }
+      ],
+      "userText": "Put this top on her.",
+      "prompt": "The model wears the top from image 2.",
+      "usePhotos": [
+        1,
+        2
+      ],
+      "usePrevious": false,
+      "outputView": "front",
+      "styling": {},
+      "assumed": [
+        {
+          "photo": 1,
+          "role": "model",
+          "view": "front",
+          "framing": "partial"
+        },
+        {
+          "photo": 2,
+          "role": "garment",
+          "view": "front",
+          "length": "upper"
+        }
+      ],
+      "expect": {
+        "rules": [
+          "Keep the framing of the model photo"
+        ]
+      }
+    },
+    {
+      "id": "flat-lay-garment",
+      "title": "Flat-lay garment",
+      "inputs": [
+        {
+          "file": "eval/images/model-front.jpg",
+          "role": "model"
+        },
+        {
+          "file": "eval/images/flatlay-dress.jpg",
+          "role": "garment"
+        }
+      ],
+      "userText": "Use this dress.",
+      "prompt": "The model wears the dress from image 2.",
+      "usePhotos": [
+        1,
+        2
+      ],
+      "usePrevious": false,
+      "outputView": "front",
+      "styling": {},
+      "assumed": [
+        {
+          "photo": 1,
+          "role": "model",
+          "view": "front",
+          "framing": "full"
+        },
+        {
+          "photo": 2,
+          "role": "garment",
+          "view": "flat-lay",
+          "length": "full"
+        }
+      ],
+      "expect": {
+        "rules": [
+          "laid flat"
+        ]
+      }
+    },
+    {
+      "id": "garment-with-logo",
+      "title": "Garment with a logo",
+      "inputs": [
+        {
+          "file": "eval/images/model-front.jpg",
+          "role": "model"
+        },
+        {
+          "file": "eval/images/logo-tee.jpg",
+          "role": "garment"
+        }
+      ],
+      "userText": "Put this tee on the model.",
+      "prompt": "The model wears the tee from image 2.",
+      "usePhotos": [
+        1,
+        2
+      ],
+      "usePrevious": false,
+      "outputView": "front",
+      "styling": {},
+      "assumed": [
+        {
+          "photo": 1,
+          "role": "model",
+          "view": "front",
+          "framing": "full"
+        },
+        {
+          "photo": 2,
+          "role": "garment",
+          "view": "front",
+          "length": "upper",
+          "logo": true
+        }
+      ],
+      "expect": {
+        "rules": [
+          "keep the same design, colours, size and position"
+        ]
+      }
+    },
+    {
+      "id": "shoes-only",
+      "title": "Shoes on the previous result",
+      "inputs": [
+        {
+          "file": "eval/images/sneakers.jpg",
+          "role": "shoes"
+        }
+      ],
+      "userText": "Put these shoes on the model.",
+      "prompt": "Replace the footwear with the sneakers from image 2.",
+      "usePhotos": [
+        1
+      ],
+      "usePrevious": true,
+      "outputView": "front",
+      "styling": {},
+      "assumed": [
+        {
+          "photo": 1,
+          "role": "shoes",
+          "view": "front"
+        }
+      ],
+      "expect": {
+        "rules": [
+          "Replace the footwear with the shoes from image 2"
+        ]
+      }
+    },
+    {
+      "id": "background-change",
+      "title": "Background change",
+      "inputs": [
+        {
+          "file": "eval/images/model-front.jpg",
+          "role": "model"
+        },
+        {
+          "file": "eval/images/studio-bg.jpg",
+          "role": "background"
+        }
+      ],
+      "userText": "Put her in this studio.",
+      "prompt": "Place the model in the studio background from image 2.",
+      "usePhotos": [
+        1,
+        2
+      ],
+      "usePrevious": false,
+      "outputView": "front",
+      "styling": {},
+      "assumed": [
+        {
+          "photo": 1,
+          "role": "model",
+          "view": "front",
+          "framing": "full"
+        },
+        {
+          "photo": 2,
+          "role": "background",
+          "view": "unknown"
+        }
+      ],
+      "expect": {
+        "rules": [
+          "Place the person in the setting from image 2"
+        ]
+      }
+    },
+    {
+      "id": "model-swap",
+      "title": "Model swap",
+      "inputs": [
+        {
+          "file": "eval/images/model-a.jpg",
+          "role": "model"
+        },
+        {
+          "file": "eval/images/model-b.jpg",
+          "role": "model"
+        },
+        {
+          "file": "eval/images/dress.jpg",
+          "role": "garment"
+        }
+      ],
+      "userText": "Put the second person in this dress.",
+      "prompt": "Replace the person with the one from image 2, wearing the dress from image 3.",
+      "usePhotos": [
+        1,
+        2,
+        3
+      ],
+      "usePrevious": false,
+      "outputView": "front",
+      "styling": {
+        "model": "change"
+      },
+      "assumed": [
+        {
+          "photo": 1,
+          "role": "model",
+          "view": "front",
+          "framing": "full"
+        },
+        {
+          "photo": 2,
+          "role": "model",
+          "view": "front",
+          "framing": "full"
+        },
+        {
+          "photo": 3,
+          "role": "garment",
+          "view": "front",
+          "length": "full"
+        }
+      ],
+      "expect": {
+        "rules": [
+          "Replace the person with the one from image 2"
+        ]
+      }
+    },
+    {
+      "id": "blouse-design-reference",
+      "title": "Saree with a blouse design taken from a reference photo",
+      "inputs": [
+        {
+          "file": "eval/images/saree-green.jpg",
+          "role": "garment"
+        },
+        {
+          "file": "eval/images/blouse-design.jpg",
+          "role": "garment"
+        },
+        {
+          "file": "eval/images/model-front.jpg",
+          "role": "model"
+        }
+      ],
+      "userText": "Model wearing the saree from image 1, with a blouse inspired by the design in image 2. Keep the blouse colour from the saree, not from image 2.",
+      "prompt": "The model wears the saree from image 1 with a blouse inspired by the design in image 2.",
+      "usePhotos": [
+        1,
+        2,
+        3
+      ],
+      "usePrevious": false,
+      "outputView": "front",
+      "styling": {},
+      "assumed": [
+        {
+          "photo": 1,
+          "role": "garment",
+          "view": "front",
+          "length": "full",
+          "colors": "green and gold"
+        },
+        {
+          "photo": 2,
+          "role": "garment",
+          "view": "back",
+          "length": "upper",
+          "colors": "magenta",
+          "design_only": true
+        },
+        {
+          "photo": 3,
+          "role": "model",
+          "view": "front",
+          "framing": "full"
+        }
+      ],
+      "expect": {
+        "rules": [
+          "Use only the design of image 2",
+          "Do not copy its colour, fabric or print"
+        ]
+      }
+    }
+  ]
+}

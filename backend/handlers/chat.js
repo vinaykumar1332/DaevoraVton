@@ -22,7 +22,8 @@ async function rawBody(req) {
 /** POST /api/chat/turn */
 export async function chatTurnHandler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
-  if (!requireUser(req, res, 'chat')) return;
+  const session = requireUser(req, res, 'chat');
+  if (!session) return;
   const openaiKey = process.env.OPENAI_API_KEY;
   if (!openaiKey) return send(res, 500, { error: { name: 'UnauthorizedAccess', message: 'OPENAI_API_KEY is not set on the server.' } });
 
@@ -35,7 +36,7 @@ export async function chatTurnHandler(req, res) {
 
   const tStart = Date.now();
   try {
-    const turn = await chatTurn({ ...input, openaiKey, photoMeta: input.photoMeta ?? {} });
+    const turn = await chatTurn({ ...input, openaiKey, photoMeta: input.photoMeta ?? {}, userId: session.username });
     const duration = Date.now() - tStart;
     jobStore.logRequest?.({ endpoint: 'openai/chat/turn', method: 'POST', status: 200, duration });
     send(res, 200, turn);

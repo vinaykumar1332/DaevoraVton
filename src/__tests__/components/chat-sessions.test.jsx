@@ -99,7 +99,7 @@ describe('failed messages: retry and edit', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(/not completed/i);
-    expect(alert).toHaveTextContent(/busy right now/i);
+    expect(alert).toHaveTextContent(/image service is busy/i);
 
     await user.click(within(alert).getByRole('button', { name: /retry/i }));
     await screen.findByText('Tell me more.');

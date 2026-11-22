@@ -3,6 +3,7 @@
 import { send } from '../../api/_auth.js';
 import { requireUser } from '../guard.js';
 import { upstreamCode } from '../agents/chat.js';
+import { passes } from '../../src/agents/qualityGate.js';
 
 const MAX_BODY = 25 * 1024 * 1024;
 const MAX_INPUTS = 6;
@@ -40,6 +41,7 @@ export function summarize(text) {
   const values = Object.values(areas);
   if (!values.length) return null;
   const match = Math.round(values.reduce((s, v) => s + v, 0) / values.length);
+  const pass = passes(areas, match);
   const problems = (Array.isArray(data.problems) ? data.problems : [])
     .filter((p) => AREAS.includes(p?.area) && typeof p.detail === 'string' && p.detail.trim())
     .slice(0, 5)
@@ -48,7 +50,7 @@ export function summarize(text) {
       source: SOURCES.includes(p.source) ? p.source : 'output',
       detail: p.detail.replace(/[\r\n]+/g, ' ').trim().slice(0, 180),
     }));
-  return { match, areas, problems };
+  return { match, areas, problems, pass };
 }
 
 async function readJson(req) {
@@ -85,10 +87,11 @@ export async function scoreLookHandler(req, res) {
     return send(res, 400, { error: { name: 'BadRequest', message: 'output must be a result image.' } });
   }
 
-  const image = (url) => ({ type: 'image_url', image_url: { url, detail: 'low' } });
+  const image = (url, detail = 'low') => ({ type: 'image_url', image_url: { url, detail } });
+  const roles = Array.isArray(input?.inputRoles) ? input.inputRoles : [];
   const content = [
-    ...inputs.map(image),
-    image(output),
+    ...inputs.map((url, i) => image(url, roles[i] === 'garment' ? 'high' : 'low')),
+    image(output, 'high'),
     {
       type: 'text',
       text: `The user asked for: ${String(request ?? '').slice(0, MAX_TEXT)}\nThe brief sent to the engine: ${String(brief ?? '').slice(0, MAX_TEXT)}`,
