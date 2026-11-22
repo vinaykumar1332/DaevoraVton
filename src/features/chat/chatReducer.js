@@ -103,6 +103,11 @@ export function chatReducer(state, action) {
         };
       });
 
+    case 'SET_FEEDBACK':
+      return touch(state, action.chatId, (c) => ({
+        messages: c.messages.map((m) => (m.id === action.messageId ? { ...m, feedback: action.feedback } : m)),
+      }));
+
     // The quality check of a result: a { match, areas, problems } object, or null when the check failed.
     case 'SET_SCORE':
       return touch(state, action.chatId, (c) => ({

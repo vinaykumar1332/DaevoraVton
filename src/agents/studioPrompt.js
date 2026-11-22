@@ -175,6 +175,7 @@ export function buildPrompt({ prompt, notes = [], usePhotos = [], usePrevious = 
   }
   if (add.length) rules.push(`Add ${add.join(', ')} to the look, worn or placed naturally on the person, at a realistic scale, with matching light and shadow.`);
   if (remove.length) rules.push(`Remove ${remove.join(', ')} from the image and rebuild the area naturally.`);
+  if (models.length && garments.length) rules.push('Change only the garments listed in the request and the photos. Keep everything else the model wears exactly as in the model photo, and do not add any other garment.');
   if (models.length && !of('background').length) rules.push('Keep the original background and lighting of the model photo.');
 
   const keepIdentity = used.some((u) => u.role === 'model') && model !== 'change';

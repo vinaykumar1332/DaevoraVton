@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input.jsx';
 import { notify } from '@/lib/notify.js';
 import { BOT_NAME } from '@/lib/bot.js';
 import Lightbox from '@/components/common/Lightbox.jsx';
-import PageLoader from '@/components/common/PageLoader.jsx';
+import ChatSkeleton from './ChatSkeleton.jsx';
 import FittingLoader from '@/components/common/FittingLoader.jsx';
 import { downloadImage } from '@/api/fashn.js';
 import { prepareFile } from '@/lib/imageIntake.js';
@@ -122,7 +122,7 @@ function QuickActions({ onPick, onOpenPage }) {
 }
 
 export default function ChatStudio({ onNavigate }) {
-  const { state, active, run, send, runTool, resend, regenerate, stop, newChat, selectChat, deleteChat } = useChat();
+  const { state, active, run, send, runTool, resend, regenerate, regenerateWith, setFeedback, stop, newChat, selectChat, deleteChat } = useChat();
   const [pending, setPending] = useState([]); // photos attached to the message being written
   const [photoMeta, setPhotoMeta] = useState({}); // { [photoId]: analysis } — populated async on upload
   const [photoSizes, setPhotoSizes] = useState({}); // { [photoId]: { w, h } } read when each thumbnail loads
@@ -171,7 +171,7 @@ export default function ChatStudio({ onNavigate }) {
     t.style.height = `${Math.min(t.scrollHeight, 320)}px`;
   }, [input]);
 
-  if (!state.loaded || !active) return <PageLoader />;
+  if (!state.loaded || !active) return <ChatSkeleton />;
 
   async function addFiles(fileList) {
     const files = [...(fileList ?? [])];
@@ -298,6 +298,8 @@ export default function ChatStudio({ onNavigate }) {
               onOpen={(images, index) => setLightbox({ images, index })}
               onTool={(tool, src, opts) => runTool(active.id, { tool, src, ...opts })}
               onRegenerate={() => regenerate(active.id, m.id)}
+              onFeedback={(feedback) => setFeedback(active.id, m.id, feedback)}
+              onRegenerateWith={(fixes) => regenerateWith(active.id, m.id, fixes)}
               onFix={(detail) => send(active.id, `Fix: ${detail}`, [], photoMeta, { url: m.images[0], prompt: m.prompt, resolution: m.resolution })}
               onAttach={attachResult}
               onResend={(text) => {
@@ -625,10 +627,10 @@ function SessionMenu({ state, run, onSelect, onDelete }) {
   );
 }
 
-function Message({ m, busy, onOpen, onTool, onRegenerate, onAttach, onResend, onFix }) {
+function Message({ m, busy, onOpen, onTool, onRegenerate, onAttach, onResend, onFix, onFeedback, onRegenerateWith }) {
   if (m.role === 'user') return <UserMessage m={m} busy={busy} onOpen={onOpen} onResend={onResend} />;
 
-  if (m.role === 'result') return <ResultBubble m={m} onOpen={onOpen} onTool={onTool} onRegenerate={onRegenerate} onAttach={onAttach} onFix={onFix} busy={busy} />;
+  if (m.role === 'result') return <ResultBubble m={m} onOpen={onOpen} onTool={onTool} onRegenerate={onRegenerate} onAttach={onAttach} onFix={onFix} onFeedback={onFeedback} onRegenerateWith={onRegenerateWith} busy={busy} />;
 
   return (
     <div className="msg bot">

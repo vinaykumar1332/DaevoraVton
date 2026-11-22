@@ -216,6 +216,26 @@ export function ChatProvider({ children, onJobSettled }) {
       });
   }
 
+  /** Runs the same look again with the user's fixes added to the engine prompt. */
+  const regenerateWith = useCallback(
+    (chatId, messageId, fixes) => {
+      const msg = stateRef.current.chats[chatId]?.messages.find((m) => m.id === messageId);
+      if (!msg || msg.kind !== 'look' || !msg.engine || abortRef.current || !fixes?.trim()) return;
+      return withRun(chatId, { creating: true, photo: msg.used?.[0] ?? null, status: 'Creating your look…' }, (signal) =>
+        runLook(chatId, {
+          enginePrompt: msg.engine,
+          prompt: msg.prompt,
+          images: msg.used ?? [],
+          resolution: msg.resolution ?? RESULT_RESOLUTION,
+          signal,
+          extraInstruction: `Fix these problems from the user's feedback: ${fixes.trim().slice(0, 300)}`,
+        }).then((look) => checkInBackground(chatId, look))
+      );
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [withRun]
+  );
+
   /** Runs the same look again with the same inputs, prompt and resolution. */
   const regenerate = useCallback(
     (chatId, messageId) => {
@@ -351,6 +371,8 @@ export function ChatProvider({ children, onJobSettled }) {
   const actions = useMemo(
     () => ({
       send,
+      regenerateWith,
+      setFeedback: (chatId, messageId, feedback) => dispatch({ type: 'SET_FEEDBACK', chatId, messageId, feedback }),
       runTool,
       resend,
       regenerate,

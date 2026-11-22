@@ -4869,3 +4869,326 @@ h4 {
     animation: none;
   }
 }
+
+/* Result feedback: good / needs a fix, then the fixes to regenerate with */
+.fb {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.fb-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.fb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2.2rem;
+  padding: 0 0.8rem;
+  border: 1px solid var(--ds-line);
+  border-radius: 6px;
+  background: var(--ds-white);
+  color: var(--ds-ink);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.fb-btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+.fb-btn.on {
+  border-color: var(--ds-accent);
+  color: var(--ds-accent-ink);
+}
+.fb-panel {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--ds-line);
+  border-radius: 8px;
+  background: var(--ds-surface);
+}
+.fb-q {
+  margin: 0;
+  font-weight: 600;
+}
+.fb-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.fb-chip {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--ds-line);
+  border-radius: 999px;
+  background: var(--ds-white);
+  color: var(--ds-ink-2);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.fb-chip.on {
+  border-color: var(--ds-accent);
+  background: var(--ds-accent-wash);
+  color: var(--ds-accent-ink);
+}
+.fb-note {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--ds-line);
+  border-radius: 6px;
+  background: var(--ds-white);
+  font: inherit;
+  font-size: 0.86rem;
+}
+.fb-thanks {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--ds-ink-2);
+}
+
+/* AI Studio on phones and small screens: smaller type, tighter cards, smaller photo tiles */
+@media (max-width: 640px) {
+  .chat-hero {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+  .chat-hero .avatar.hero-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+  .chat-hero h3 {
+    font-size: 1.05rem;
+  }
+  .chat-hero p {
+    font-size: 0.82rem;
+  }
+  .quick-actions {
+    gap: 0.5rem;
+  }
+  .qa-card {
+    padding: 0.6rem 0.7rem;
+    gap: 0.5rem;
+  }
+  .qa-icon {
+    width: 2rem;
+    height: 2rem;
+  }
+  .qa-text strong,
+  .qa-text b {
+    font-size: 0.85rem;
+  }
+  .qa-text small,
+  .qa-text span {
+    font-size: 0.72rem;
+  }
+  .chat-head h2 {
+    font-size: 0.95rem;
+  }
+  .chat-head p,
+  .chat-status {
+    font-size: 0.72rem;
+  }
+  .bubble {
+    font-size: 0.88rem;
+    line-height: 1.45;
+  }
+  .bubble.result .gen-time,
+  .gen-time {
+    font-size: 0.7rem;
+  }
+  .cattach-item,
+  .cattach-add {
+    width: 5rem;
+    height: 5rem;
+  }
+  .cattach-thumb,
+  .cattach-thumb .cattach-open,
+  .cattach-item .cattach-open {
+    width: 5rem;
+    height: 5rem;
+  }
+  .cattach-chip {
+    font-size: 0.6rem;
+  }
+  .fb-btn {
+    height: 2rem;
+    font-size: 0.8rem;
+  }
+}
+@media (max-width: 380px) {
+  .qa-card {
+    padding: 0.5rem;
+  }
+  .bubble {
+    font-size: 0.82rem;
+  }
+}
+@media (max-width: 640px) {
+  .quick-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .qa-card {
+    min-height: 0;
+  }
+}
+
+/* Scrollbars: thin, rounded, in the app palette (Firefox and WebKit: Chrome, Edge, Safari) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c5cdd7 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: #c5cdd7;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--ds-ink-2);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Feedback sits in the same row as Edit and Download; the reason panel wraps to its own full-width line */
+.rb-actions .fb {
+  display: contents;
+}
+.rb-actions .fb-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-right: auto;
+}
+.rb-actions .fb-btn {
+  height: 2.2rem;
+  padding: 0 0.9rem;
+  font-size: 0.86rem;
+}
+.rb-actions .fb-panel,
+.rb-actions .fb-thanks {
+  flex-basis: 100%;
+  order: 10;
+}
+.rb-actions .fb-thanks {
+  margin-top: 0.25rem;
+  text-align: right;
+}
+@media (max-width: 520px) {
+  .rb-actions .fb-row {
+    width: 100%;
+    margin-right: 0;
+  }
+  .rb-actions .fb-row .fb-btn {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+}
+
+/* AI Studio loading placeholder: same layout as the chat, with a soft shimmer */
+.chat-skel {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 150px);
+  min-height: 520px;
+  background: var(--ds-white);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.chat-skel-head,
+.chat-skel-composer {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--ds-line);
+}
+.chat-skel-composer {
+  margin-top: auto;
+  border-top: 1px solid var(--ds-line);
+  border-bottom: 0;
+}
+.chat-skel-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem 1rem;
+}
+.chat-skel-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  max-width: 70%;
+}
+.chat-skel-msg.me {
+  align-self: flex-end;
+}
+.chat-skel-bubble {
+  flex: 1;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 10px;
+  background: var(--ds-surface);
+}
+.chat-skel-lines {
+  display: grid;
+  gap: 0.4rem;
+  flex: 1;
+}
+.chat-skel-dot {
+  width: 2.2rem;
+  height: 2.2rem;
+  flex: none;
+  border-radius: 50%;
+}
+.chat-skel-dot.sm {
+  width: 1.8rem;
+  height: 1.8rem;
+}
+.chat-skel-line {
+  display: block;
+  height: 0.7rem;
+  border-radius: 4px;
+}
+.chat-skel-line.w-24 { width: 24%; }
+.chat-skel-line.w-40 { width: 40%; }
+.chat-skel-line.w-50 { width: 50%; }
+.chat-skel-line.w-60 { width: 60%; }
+.chat-skel-line.w-70 { width: 70%; }
+.chat-skel-dot,
+.chat-skel-line,
+.chat-skel-bubble {
+  background: linear-gradient(90deg, var(--ds-surface) 25%, var(--ds-paper) 50%, var(--ds-surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s linear infinite;
+}
+.chat-skel-composer .chat-skel-line {
+  height: 0.9rem;
+}
+@media (max-width: 640px) {
+  .chat-skel-msg {
+    max-width: 88%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-skel-dot,
+  .chat-skel-line,
+  .chat-skel-bubble {
+    animation: none;
+  }
+}
