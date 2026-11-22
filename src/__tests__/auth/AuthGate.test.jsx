@@ -12,32 +12,16 @@ describe('AuthGate', () => {
     at('/');
   });
 
-  it('shows the landing page on / for signed-out visitors', async () => {
-    at('/');
-    render(<AuthGate><p>app</p></AuthGate>);
-    expect(await screen.findByRole('heading', { name: /try any look on/i })).toBeInTheDocument();
-  });
-
-  it('shows the pricing and about pages to signed-out visitors', async () => {
-    at('/pricing/');
-    const { unmount } = render(<AuthGate><p>app</p></AuthGate>);
-    expect(await screen.findByRole('heading', { name: 'Credits' })).toBeInTheDocument();
-    unmount();
-
-    at('/about');
-    render(<AuthGate><p>app</p></AuthGate>);
-    expect(await screen.findByRole('heading', { name: /about fitting room/i })).toBeInTheDocument();
-  });
-
-  it('keeps the sign-in form on every other path', () => {
-    at('/ai-studio');
+  it.each(['/', '/pricing', '/about', '/ai-studio'])('shows the sign-in page on %s for a signed-out visitor', (path) => {
+    at(path);
     render(<AuthGate><p>app</p></AuthGate>);
     expect(screen.getByText('Welcome back')).toBeInTheDocument();
+    expect(screen.queryByText('app')).toBeNull();
   });
 
-  it('renders the app for a signed-in user on any path', () => {
+  it('renders the app for a signed-in user', () => {
     auth.user = { username: 'admin' };
-    at('/');
+    at('/ai-studio');
     render(<AuthGate><p>app</p></AuthGate>);
     expect(screen.getByText('app')).toBeInTheDocument();
   });

@@ -4545,3 +4545,273 @@ h4 {
   font-size: var(--ds-text-sm);
   font-weight: 600;
 }
+
+/* ================= Sidebar and credits: clear expand/collapse, phone drawer, visible balance ================= */
+
+/* Credit balance, always visible (phone header and collapsed rail) */
+.credit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: auto;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--chalk);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.credit-chip b {
+  color: var(--marker-ink);
+  font-weight: 700;
+}
+.credit-chip:disabled {
+  cursor: progress;
+}
+.credit-chip:focus-visible {
+  outline: 2px solid var(--marker);
+  outline-offset: 2px;
+}
+
+/* Collapsed rail: keep the number visible, drop the word */
+.sidebar[data-collapsed='true'] .sb-credit-word {
+  display: none;
+}
+.sidebar[data-collapsed='true'] .sb-credits {
+  align-self: center;
+}
+
+/* Expand/collapse: labels fade with the width, so the rail never shows cut-off text */
+.sidebar .nav-label,
+.sidebar .sb-brand-text,
+.sidebar .sb-account-text {
+  transition: opacity var(--nav-dur) ease;
+}
+.sidebar[data-collapsed='true'] .nav-label,
+.sidebar[data-collapsed='true'] .sb-brand-text {
+  opacity: 0;
+}
+
+/* Phone drawer header and close button: hidden on desktop */
+.sb-drawer-head {
+  display: none;
+}
+.sb-close {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .sb-drawer-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0 0 0.75rem;
+    padding: 0 0.25rem 0.75rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .sb-drawer-head strong {
+    flex: 1;
+    font-size: 1rem;
+  }
+  .sb-close {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--chalk);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .sb-close svg {
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+  .sidebar .nav-item {
+    min-height: 2.75rem;
+  }
+  .sidebar .sb-footer {
+    display: flex;
+    flex-direction: column;
+    margin-top: auto;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--line);
+  }
+  .sidebar {
+    overscroll-behavior: contain;
+  }
+  html:has(.sidebar[data-open='true']) {
+    overflow: hidden;
+  }
+  .topbar-mobile {
+    gap: 0.75rem;
+  }
+}
+
+/* Collapsed rail: show the balance (number only) under the avatar */
+.sidebar[data-collapsed='true'] .sb-account-text {
+  position: static;
+  width: auto;
+  opacity: 1;
+  overflow: visible;
+}
+.sidebar[data-collapsed='true'] .sb-account-text > strong {
+  display: none;
+}
+.sidebar[data-collapsed='true'] .sb-account {
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.sidebar[data-collapsed='true'] .sb-credits {
+  align-self: center;
+}
+
+/* ================= Compact collapsed rail, clearer tooltips, one smooth timing for rail and content ================= */
+:root {
+  --sidebar-w-collapsed: 56px;
+  --rail-dur: 0.28s;
+}
+.body {
+  transition: grid-template-columns var(--rail-dur) var(--ease-out-soft);
+}
+.content {
+  transition: opacity var(--rail-dur) var(--ease-out-soft);
+}
+.sidebar {
+  transition: padding var(--rail-dur) var(--ease-out-soft);
+}
+.sidebar[data-collapsed='true'] {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+.sidebar[data-collapsed='true'] .nav-item {
+  height: 2.5rem;
+  border-radius: 8px;
+}
+.sidebar[data-collapsed='true'] .nav-item::after {
+  left: calc(100% + 14px);
+  padding: 0.4rem 0.7rem;
+  background: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition-delay: 0s;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  transform: translate(-6px, -50%);
+}
+.sidebar[data-collapsed='true'] .nav-item:hover::after,
+.sidebar[data-collapsed='true'] .nav-item:focus-visible::after {
+  transition-delay: 0.1s;
+}
+.sidebar[data-collapsed='true'] .nav-item::before {
+  content: '';
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  background: var(--ink);
+  transform: translate(0, -50%) rotate(45deg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
+}
+.sidebar[data-collapsed='true'] .nav-item:hover::before,
+.sidebar[data-collapsed='true'] .nav-item:focus-visible::before {
+  opacity: 1;
+  transition-delay: 0.1s;
+}
+.sidebar[data-collapsed='true'] .nav-item:hover::after,
+.sidebar[data-collapsed='true'] .nav-item:focus-visible::after {
+  transform: translate(0, -50%);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --rail-dur: 0.001s;
+  }
+}
+
+/* ================= iOS-style rail: flex layout, width animates on the rail, tooltips above content ================= */
+:root {
+  --ios-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --ios-dur: 0.38s;
+}
+@media (min-width: 901px) {
+  .body,
+  .body.sb-collapsed {
+    display: flex;
+    grid-template-columns: none;
+    transition: none;
+  }
+  .body > .content {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .sidebar {
+    flex: none;
+    width: var(--sidebar-w);
+    z-index: 999;
+    transition: width var(--ios-dur) var(--ios-ease), padding var(--ios-dur) var(--ios-ease);
+  }
+  .sidebar[data-collapsed='true'] {
+    width: var(--sidebar-w-collapsed);
+  }
+  .sidebar .nav-label,
+  .sidebar .sb-brand-text,
+  .sidebar .sb-account-text,
+  .sidebar .nav-title span {
+    transition: opacity var(--ios-dur) var(--ios-ease), transform var(--ios-dur) var(--ios-ease);
+  }
+  .sidebar[data-collapsed='true'] .nav-label,
+  .sidebar[data-collapsed='true'] .sb-brand-text,
+  .sidebar[data-collapsed='true'] .nav-title span {
+    transform: translateX(-6px);
+  }
+  .sidebar[data-collapsed='true'] .nav-item::after {
+    z-index: 999;
+    transition: opacity 0.2s var(--ios-ease), transform 0.2s var(--ios-ease);
+  }
+  .content {
+    transition: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ios-dur: 0.001s;
+  }
+}
+
+/* Collapsed rail: avatar and credit count share one centre line */
+.sidebar[data-collapsed='true'] .sb-account-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.sidebar[data-collapsed='true'] .sb-credits {
+  align-self: center;
+  margin: 0;
+  justify-content: center;
+}
+.sidebar[data-collapsed='true'] .sb-account {
+  align-items: center;
+}
+.sidebar[data-collapsed='true'] .sb-account-text {
+  width: 100%;
+}
+.sidebar[data-collapsed='true'] .sb-account-text {
+  margin: 0;
+  padding: 0;
+  transform: none;
+}
+
+/* Attached photos: show the whole photo, with a neutral backdrop where it letterboxes */
+.cattach-item img {
+  object-fit: contain;
+}
+.cattach-item .cattach-open {
+  background: var(--ds-surface);
+}

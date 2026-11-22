@@ -45,14 +45,16 @@ describe('sidebar', () => {
     expect(body()).not.toHaveClass('sb-collapsed');
   });
 
-  it('lists every page, but only AI Studio is clickable', async () => {
+  it('shows AI Studio as the only page in the sidebar', async () => {
     const user = userEvent.setup();
     render(<App />);
-    const remove = screen.getByRole('button', { name: /remove background/i });
-    expect(remove).toBeDisabled();
-    await user.click(remove);
+    expect(screen.queryByRole('button', { name: /remove background/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /outfit studio/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /bulk/i })).toBeNull();
+    const aiStudio = screen.getByRole('button', { name: /ai studio/i });
+    expect(aiStudio).not.toBeDisabled();
+    await user.click(aiStudio);
     expect(window.location.pathname).toBe('/ai-studio');
-    expect(screen.getByRole('button', { name: /ai studio/i })).not.toBeDisabled();
   });
 
   it('sends a hidden page URL back to AI Studio', () => {
