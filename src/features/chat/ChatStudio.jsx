@@ -8,6 +8,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { notify } from '@/lib/notify.js';
+import { formatDay } from '@/lib/format.js';
 import { BOT_NAME } from '@/lib/bot.js';
 import Lightbox from '@/components/common/Lightbox.jsx';
 import ChatSkeleton from './ChatSkeleton.jsx';
@@ -97,6 +98,24 @@ function tagsOf(meta) {
   return [meta.role, meta.type, meta.color].filter(Boolean);
 }
 
+// Photo consent is remembered per browser, so people are asked once before their first upload.
+const CONSENT_COOKIE = 'fr_photo_consent';
+function readConsent() {
+  try {
+    return document.cookie.split('; ').some((c) => c === `${CONSENT_COOKIE}=1`);
+  } catch {
+    return false; // cookies blocked: ask again next time
+  }
+}
+function writeConsent() {
+  try {
+    const secure = location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${CONSENT_COOKIE}=1; Max-Age=31536000; Path=/; SameSite=Lax${secure}`;
+  } catch {
+    /* cookies blocked: the consent is only kept for this visit */
+  }
+}
+
 // Quick-start cards for an empty chat. Each one either fills the composer or opens an existing page.
 const QUICK_ACTIONS = [
   { label: 'Try an outfit', hint: 'Dress a model in a garment', icon: Shirt, text: 'Dress a model in my garment' },
@@ -137,6 +156,23 @@ export default function ChatStudio({ onNavigate }) {
   const [atBottom, setAtBottom] = useState(true);
   const logRef = useRef(null);
   const fileRef = useRef(null);
+  const [consented, setConsented] = useState(readConsent);
+  const [askConsent, setAskConsent] = useState(false);
+  const waitingFiles = useRef(null); // photos picked before the user agreed, added once they do
+  // Opens the file picker, or asks for consent first.
+  function openPicker() {
+    if (!consented) return setAskConsent(true);
+    fileRef.current?.click();
+  }
+  function agreeToPhotos() {
+    writeConsent();
+    setConsented(true);
+    setAskConsent(false);
+    const files = waitingFiles.current;
+    waitingFiles.current = null;
+    if (files) addFiles(files, { agreed: true });
+    else fileRef.current?.click();
+  }
   const taRef = useRef(null);
 
   const busy = !!run; // one job at a time, in any chat
@@ -173,9 +209,14 @@ export default function ChatStudio({ onNavigate }) {
 
   if (!state.loaded || !active) return <ChatSkeleton />;
 
-  async function addFiles(fileList) {
+  async function addFiles(fileList, { agreed = false } = {}) {
     const files = [...(fileList ?? [])];
     if (!files.length) return;
+    if (!consented && !agreed) {
+      waitingFiles.current = files;
+      setAskConsent(true);
+      return;
+    }
     const room = MAX_PHOTOS - pending.length;
     if (room <= 0) return notify({ severity: 'warn', summary: 'Photos', detail: `You can attach up to ${MAX_PHOTOS} photos per message.` });
     const results = await Promise.allSettled(files.slice(0, room).map((f) => prepareFile(f)));
@@ -379,6 +420,19 @@ export default function ChatStudio({ onNavigate }) {
             </div>
           )}
 
+          {askConsent && (
+            <section className="consent" aria-labelledby="consent-title">
+              <p id="consent-title"><b>Before you add photos</b></p>
+              <p>
+                Photos you add are sent to our AI providers to make your look. Only add photos you have the right to use, and only of people who have agreed to this.
+              </p>
+              <div className="consent-actions">
+                <button type="button" className="consent-no" onClick={() => { waitingFiles.current = null; setAskConsent(false); }}>Not now</button>
+                <button type="button" className="consent-yes" onClick={agreeToPhotos}>I agree, add photos</button>
+              </div>
+            </section>
+          )}
+
           <div className={`cbox ${busy ? 'is-busy' : ''}`}>
             {pending.length > 0 && (
               <div className="cattach" role="group" aria-label={`${pending.length} of ${MAX_PHOTOS} photos attached`}>
@@ -420,7 +474,7 @@ export default function ChatStudio({ onNavigate }) {
                   );
                 })}
                 {pending.length < MAX_PHOTOS && (
-                  <button type="button" className="cattach-add" aria-label="Attach more photos" onClick={() => fileRef.current?.click()} disabled={busy}>
+                  <button type="button" className="cattach-add" aria-label="Attach more photos" onClick={openPicker} disabled={busy}>
                     <Plus aria-hidden="true" />
                   </button>
                 )}
@@ -461,7 +515,7 @@ export default function ChatStudio({ onNavigate }) {
                 className="cbtn"
                 aria-label="Attach photos"
                 data-tip={editOn && active.lastResult ? 'Add photos to the last look' : 'Attach photos'}
-                onClick={() => fileRef.current?.click()}
+                onClick={openPicker}
                 disabled={busy || pending.length >= MAX_PHOTOS}
               >
                 <Paperclip aria-hidden="true" />
@@ -526,7 +580,7 @@ function timeAgo(ts) {
   if (s < 60) return 'just now';
   if (s < 3600) return `${Math.floor(s / 60)} min ago`;
   if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
-  return new Date(ts).toLocaleDateString();
+  return formatDay(ts);
 }
 
 /**

@@ -65,7 +65,7 @@ h4 {
   color: var(--ink);
 }
 :focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: 2px;
 }
 .muted {
@@ -347,7 +347,7 @@ h4 {
   transform: none;
 }
 .drop-preview:focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: -3px;
 }
 .drop-actions {
@@ -513,7 +513,7 @@ h4 {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  color: #8793a3;
+  color: var(--ink-2);
   transition: color 0.3s;
 }
 .fit-dot {
@@ -623,7 +623,7 @@ h4 {
   background-color: #dfe4e9;
 }
 .tile-img:focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: 2px;
 }
 .tile-img img {
@@ -663,7 +663,7 @@ h4 {
   color: var(--ink);
 }
 .tile-actions button:focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: 2px;
 }
 .steps-strip figcaption {
@@ -1074,7 +1074,7 @@ h4 {
   transform: scale(1.02);
 }
 .result-img:focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: 2px;
 }
 .bubble details summary {
@@ -1437,7 +1437,7 @@ h4 {
   opacity: 0.6;
 }
 .preview-btn:focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: 2px;
 }
 .tools {
@@ -1749,7 +1749,7 @@ h4 {
   transform: translateY(-1px);
 }
 .in-thumb:focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: 2px;
 }
 
@@ -2901,7 +2901,7 @@ h4 {
   object-fit: cover;
 }
 .cattach-open:focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: -3px;
 }
 .pp-close {
@@ -2924,7 +2924,7 @@ h4 {
   height: 1rem;
 }
 .pp-close:focus-visible {
-  outline: 3px solid var(--marker);
+  outline: 3px solid var(--marker-ink);
   outline-offset: 2px;
 }
 
@@ -3630,7 +3630,7 @@ h4 {
 /* visible keyboard focus everywhere in the chat */
 .chat button:focus-visible,
 .chat [role='log']:focus-visible {
-  outline: 2px solid var(--marker);
+  outline: 2px solid var(--marker-ink);
   outline-offset: 2px;
 }
 @media (max-width: 640px) {
@@ -3677,7 +3677,7 @@ h4 {
   cursor: not-allowed;
 }
 .icon-btn:focus-visible {
-  outline: 2px solid var(--marker);
+  outline: 2px solid var(--marker-ink);
   outline-offset: 2px;
 }
 /* small count on the History icon */
@@ -3797,7 +3797,7 @@ h4 {
   transform: translateY(0) scale(0.97);
 }
 .ctag:focus-visible {
-  outline: 2px solid var(--marker);
+  outline: 2px solid var(--marker-ink);
   outline-offset: 2px;
 }
 
@@ -4072,7 +4072,7 @@ h4 {
   --fr-field: #f8fafc;
   --fr-border: #dce3ea;
   --fr-text: #142033;
-  --fr-muted: #667085;
+  --fr-muted: #566173;
   --fr-radius-sm: 10px;
   --fr-radius-md: 14px;
   --fr-radius-lg: 18px;
@@ -4112,9 +4112,18 @@ h4 {
 .qa-card.is-disabled,
 .qa-card:disabled {
   cursor: not-allowed;
-  opacity: 0.5;
   background: var(--fr-field);
   box-shadow: none;
+}
+.qa-card.is-disabled b,
+.qa-card:disabled b,
+.qa-card.is-disabled small,
+.qa-card:disabled small {
+  color: var(--ink-2);
+}
+.qa-card.is-disabled .qa-icon,
+.qa-card:disabled .qa-icon {
+  opacity: 0.6;
 }
 .qa-icon {
   flex: none;
@@ -4572,7 +4581,7 @@ h4 {
   cursor: progress;
 }
 .credit-chip:focus-visible {
-  outline: 2px solid var(--marker);
+  outline: 2px solid var(--marker-ink);
   outline-offset: 2px;
 }
 
@@ -5190,5 +5199,173 @@ h4 {
   .chat-skel-line,
   .chat-skel-bubble {
     animation: none;
+  }
+}
+
+/* Accessibility pass: AI label, consent, disclosure, touch targets */
+
+/* Result images carry a visible "AI-generated" label (AI Act transparency) */
+.preview-btn {
+  position: relative;
+}
+.ai-tag {
+  position: absolute;
+  left: 0.5rem;
+  bottom: 0.5rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(14, 26, 43, 0.82);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+}
+
+/* Photo consent, shown before the first upload */
+.consent {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 0.6rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--ds-line);
+  border-radius: 8px;
+  background: var(--ds-white);
+  color: var(--ds-ink);
+  box-shadow: var(--ds-shadow-sm);
+  font-size: 0.9rem;
+}
+.consent p {
+  margin: 0;
+}
+.consent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.consent-actions button {
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.consent-no {
+  border: 1px solid var(--ds-line);
+  background: var(--ds-white);
+  color: var(--ds-ink);
+}
+.consent-yes {
+  border: 1px solid var(--ds-accent);
+  background: var(--ds-accent);
+  color: #fff;
+}
+.consent-actions button:focus-visible {
+  outline: 3px solid var(--marker-ink);
+  outline-offset: 2px;
+}
+
+/* Targets: at least 24px everywhere, 44px on touch screens */
+.icon-btn,
+.csend,
+.cbtn,
+.sb-toggle,
+.sb-signout,
+.sb-close,
+.nav-toggle,
+.rso-close,
+.pp-close,
+.lb-btn,
+.session-del,
+.edit-chip-x,
+.cattach-remove,
+.credit-chip,
+.fb-btn {
+  min-width: 24px;
+  min-height: 24px;
+}
+@media (pointer: coarse) {
+  .icon-btn,
+  .csend,
+  .cbtn,
+  .sb-toggle,
+  .sb-signout,
+  .sb-close,
+  .nav-toggle,
+  .rso-close,
+  .pp-close,
+  .lb-btn,
+  .session-del,
+  .edit-chip-x,
+  .credit-chip,
+  .fb-btn,
+  .nav-item {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Sidebar credit button: at least 24px tall, 44px on touch screens */
+.sb-credits {
+  min-height: 24px;
+}
+@media (pointer: coarse) {
+  .sb-credits {
+    min-height: 44px;
+  }
+}
+
+/* Show/hide password: 44px on touch screens */
+@media (pointer: coarse) {
+  .login-form button[aria-label$="password"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Touch: consent buttons and suggestion chips at least 44px */
+@media (pointer: coarse) {
+  .consent-actions button,
+  .ctags button {
+    min-height: 44px;
+  }
+}
+
+/* Touch: result actions, feedback chips, quality badge and the jump pill at least 44px */
+@media (pointer: coarse) {
+  .rb-btn,
+  .fb-chip,
+  .qa-badge,
+  .jump {
+    min-height: 44px;
+  }
+}
+
+/* Touch: text fields and the sidebar items at least 44px */
+@media (pointer: coarse) {
+  .fb-note,
+  input[placeholder="Search chats…"],
+  .sidebar .nav-item {
+    min-height: 44px;
+  }
+}
+
+/* The result image is the tag's container (the bubble rule resets position with all: unset) */
+.bubble.result .preview-btn {
+  position: relative;
+}
+.bubble.result .ai-tag {
+  position: absolute;
+  left: 0.5rem;
+  bottom: 0.5rem;
+}
+
+/* Button labels stay on one line on touch screens */
+@media (pointer: coarse) {
+  .fb-btn,
+  .rb-btn {
+    white-space: nowrap;
   }
 }

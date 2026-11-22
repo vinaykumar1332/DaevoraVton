@@ -134,6 +134,7 @@ export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach
             aria-label={m.used?.length ? 'Compare before and after' : 'Open image full screen'}
           >
             <img src={preview ?? src} alt="Your look" className={preview ? 'ready' : 'loading'} loading="eager" decoding="async" onLoad={() => setImgReady(true)} onError={() => !preview && setExpired(true)} />
+            <span className="ai-tag">AI-generated</span>
           </button>
         )}
         {m.images.length > 1 && <small className="muted">Showing 1 of {m.images.length}. Download saves all of them.</small>}
@@ -409,7 +410,7 @@ function FeedbackBar({ feedback, busy, onFeedback, onRegenerateWith }) {
               </button>
             ))}
           </div>
-          <input className="fb-note" value={note} maxLength={200} placeholder="Anything else? (optional)" onChange={(e) => setNote(e.target.value)} />
+          <input className="fb-note" value={note} maxLength={200} placeholder="Anything else? (optional)" aria-label="Anything else about this look (optional)" onChange={(e) => setNote(e.target.value)} />
           <Button type="button" variant="primary" disabled={busy || (reasons.length === 0 && !extra)} onClick={() => {
             const fixes = [...reasons, extra].filter(Boolean).join('; ');
             onFeedback({ rating: 'down', reasons, note: extra });

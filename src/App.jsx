@@ -2,18 +2,15 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useRoute } from '@/lib/router.js';
 // Chat state sits above the routes, so a running chat job continues while other pages are open.
 import { ChatProvider } from '@/features/chat/ChatProvider.jsx';
-import { OUTFIT_MODES } from '@/workflows/outfitModes.js';
 import { LogOut, Menu, PanelLeft, Sparkles, X } from 'lucide-react';
 import { useMediaQuery } from '@/hooks/useMediaQuery.js';
 import { useStoredState } from '@/hooks/useStoredState.js';
-import { WfIcon } from '@/lib/icons.jsx';
 import { Toaster } from '@/components/ui/sonner.jsx';
 import { notify } from '@/lib/notify.js';
 import { useAuth } from '@/auth/context/AuthContext.jsx';
 import { useCredits } from '@/hooks/useCredits.js';
-import { useWorkflowRun, firstPhoto } from '@/hooks/useWorkflowRun.js';
-import { WORKFLOWS, NAV_GROUPS, NAV_IDS, findWorkflow, defaultValues, missingFields } from '@/workflows/engines.js';
 import { friendlyError } from '@/lib/messages.js';
+import { formatNumber } from '@/lib/format.js';
 import PageLoader from '@/components/common/PageLoader.jsx';
 import ErrorBoundary from '@/components/common/ErrorBoundary.jsx';
 
@@ -25,25 +22,17 @@ const ROUTE_IDS = LIVE_PAGES;
 // Sidebar: AI Studio only, for now.
 const NAV = [{ g: 'AI', items: [{ id: 'ai-studio', label: 'AI Studio', hint: 'Chat with the styling assistant', icon: <Sparkles aria-hidden="true" /> }] }];
 
-const Workspace = lazy(() => import('@/features/workspace/Workspace.jsx'));
 const ChatStudio = lazy(() => import('@/features/chat/ChatStudio.jsx'));
 
-/*
-  App = shell (top bar + side nav) and routing between three kinds of screen:
-    'ai-studio' -> ChatStudio   (chat with the styling assistant)
-    other ids   -> Workspace    (form workflows defined in workflows/engines.js)
-  Run state lives in useWorkflowRun so it survives switching screens.
-*/
+/* App = the shell (sidebar, credits, drawer) around AI Studio. */
 export default function App() {
   const { user, logout } = useAuth();
-  const { active, params, navigate } = useRoute(ROUTE_IDS);
-  const [valuesById, setValuesById] = useState(() => Object.fromEntries(WORKFLOWS.map((w) => [w.id, defaultValues(w)])));
+  const { active, navigate } = useRoute(ROUTE_IDS);
 
   const notifyError = useCallback((err) => {
     const f = friendlyError(err);
     notify({ severity: 'error', summary: f.title, detail: f.detail, life: 7000 });
   }, []);
-  const slotError = (msg) => notify({ severity: 'warn', summary: 'Photo', detail: msg, life: 4000 });
 
   // Sidebar: on desktop it collapses to an icon rail (remembered); on phones it is a slide-in drawer.
   const isMobile = useMediaQuery('(max-width: 900px)');
@@ -76,52 +65,10 @@ export default function App() {
   }, [toggleNav]);
 
   const { credits, loading: creditsLoading, refresh: refreshCredits } = useCredits(notifyError);
-  const run = useWorkflowRun({ notifyError, onSettled: refreshCredits });
-
-  const wf = findWorkflow(active);
-  const values = wf ? (valuesById[wf.id] ?? defaultValues(wf)) : {};
-  const setValues = useCallback(
-    (updater) =>
-      setValuesById((all) => ({
-        ...all,
-        [active]: typeof updater === 'function' ? updater(all[active]) : updater,
-      })),
-    [active]
-  );
-
-  // The URL decides the Outfit Studio workflow (?workflow=flat). With no valid param, the URL adopts the stored one.
-  const urlMode = OUTFIT_MODES.some((m) => m.id === params.workflow) ? params.workflow : null;
-  useEffect(() => {
-    if (active !== 'outfit-studio') return;
-    if (urlMode) setValues((cur) => (cur.mode === urlMode ? cur : { ...cur, mode: urlMode }));
-    else navigate('outfit-studio', { workflow: values.mode || OUTFIT_MODES[0].id }, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, urlMode]);
 
   useEffect(() => {
-    const title = 'AI Studio';
-    document.title = `${title} · Fitting Room`;
-  }, [active, wf]);
-
-  function restore(entry) {
-    if (run.running) return;
-    navigate(entry.wfId, entry.wfId === 'outfit-studio' ? { workflow: entry.values?.mode } : {});
-    setValuesById((all) => ({ ...all, [entry.wfId]: entry.values }));
-    run.setResult(entry.result);
-    run.setLastError(null);
-  }
-
-  const missing = wf ? missingFields(wf, values) : [];
-  const perCredits = wf?.credits ? wf.credits(values) : null;
-  const costLabel = !wf
-    ? ''
-    : perCredits != null
-      ? `≈ ${perCredits} credit${perCredits === 1 ? '' : 's'}${wf.costNote ? ` · ${wf.costNote}` : ''}`
-      : wf.costNote
-        ? `Cost: ${wf.costNote}`
-        : '';
-
-  const shownResult = run.result && run.result.wfId === wf?.id ? run.result : null;
+    document.title = 'AI Studio · Fitting Room';
+  }, []);
 
   return (
     <ChatProvider onJobSettled={refreshCredits}>
@@ -139,13 +86,13 @@ export default function App() {
           </span>
           <span className="topbar-mobile-title">Fitting Room</span>
           <button type="button" className="credit-chip" onClick={refreshCredits} disabled={creditsLoading} aria-label={`${credits?.total ?? 'Unknown'} credits. Refresh balance`} title="Credits left. Tap to refresh">
-            <b>{creditsLoading ? '…' : (credits?.total ?? 'n/a')}</b> <span>credits</span>
+            <b>{creditsLoading ? '…' : (credits?.total != null ? formatNumber(credits.total) : 'n/a')}</b> <span>credits</span>
           </button>
         </header>
       )}
 
       <div className={`body ${railCollapsed ? 'sb-collapsed' : ''}`}>
-        <nav id="app-nav" className="sidebar" aria-label="Workflows" data-collapsed={railCollapsed} data-open={isMobile && drawerOpen}>
+        <nav id="app-nav" className="sidebar" aria-label="Main navigation" data-collapsed={railCollapsed} data-open={isMobile && drawerOpen}>
           {isMobile && (
             <div className="sb-drawer-head">
               <span className="brand-mark" aria-hidden="true">
@@ -229,7 +176,7 @@ export default function App() {
                         : 'Click to refresh'
                     }
                   >
-                    <b>{creditsLoading ? '…' : (credits?.total ?? 'n/a')}</b> <span className="sb-credit-word">credits</span>
+                    <b>{creditsLoading ? '…' : (credits?.total != null ? formatNumber(credits.total) : 'n/a')}</b> <span className="sb-credit-word">credits</span>
                   </button>
                 </div>
                 <button type="button" className="sb-signout" onClick={logout} aria-label="Sign out" data-tip="Sign out">
@@ -245,30 +192,8 @@ export default function App() {
           <ErrorBoundary resetKey={active}>
           <Suspense fallback={<PageLoader />}>
             <div className="page-enter" key={active}>
-              {active === 'ai-studio' ? (
-                <ChatStudio onNavigate={go} />
-              ) : wf ? (
-                <Workspace
-                  wf={wf}
-                  values={values}
-                  setValues={setValues}
-                  running={run.running}
-                  status={run.status}
-                  elapsed={run.elapsed}
-                  result={shownResult}
-                  lastError={shownResult ? null : run.lastError}
-                  history={run.history.filter((h) => h.wfId === wf.id)}
-                  missing={missing}
-                  costLabel={costLabel}
-                  runPhoto={run.runPhoto}
-                  beforePhoto={firstPhoto(wf, values)}
-                  onGenerate={() => run.generate(wf, values)}
-                  onCancel={run.cancel}
-                  onRestore={restore}
-                  onModeChange={(id) => navigate('outfit-studio', { workflow: id })}
-                  onError={slotError}
-                />
-              ) : null}
+              <ChatStudio onNavigate={go} />
+
             </div>
           </Suspense>
           </ErrorBoundary>

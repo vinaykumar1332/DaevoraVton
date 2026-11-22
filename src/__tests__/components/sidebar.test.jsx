@@ -7,7 +7,7 @@ vi.mock('@/hooks/useCredits.js', () => ({ useCredits: () => ({ credits: { total:
 import App from '@/App.jsx';
 
 const body = () => document.querySelector('.body');
-const nav = () => screen.getByRole('navigation', { name: 'Workflows' });
+const nav = () => screen.getByRole('navigation', { name: 'Main navigation' });
 
 beforeEach(() => {
   localStorage.clear();

@@ -17,10 +17,8 @@ const walk = (dir) =>
   });
 
 const styleFiles = walk(path.join(srcDir, 'styles')).filter((f) => f.endsWith('.css') && !f.endsWith(path.join('foundation', 'tailwind.css')));
-const featureCss = [path.join(srcDir, 'features/workspace/workspace.css')];
-
 describe('theme tokens', () => {
-  it.each([...styleFiles, ...featureCss])('%s does not redefine shadcn variables', (file) => {
+  it.each(styleFiles)('%s does not redefine shadcn variables', (file) => {
     const css = fs.readFileSync(file, 'utf8');
     const clashes = SHADCN_TOKENS.filter((t) => new RegExp(`--${t}\\s*:`).test(css));
     expect(clashes).toEqual([]);
