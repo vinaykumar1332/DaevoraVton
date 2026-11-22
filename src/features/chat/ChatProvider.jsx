@@ -9,6 +9,7 @@ import { listChats, saveChat, deleteChat as removeChat } from '@/lib/chatStore.j
 import { chatReducer, initialState, newChat, uid } from './chatReducer.js'; // chatReducer also used by dispatchNow
 import { detectToolIntent, refersBack } from './intent.js';
 import { shrinkDataURI } from '@/lib/imageShrink.js';
+import { retryInstruction } from '@/agents/qualityGate.js';
 
 /*
   AI Studio chat state lives here, above the page routes, so a running job keeps going (and its
@@ -152,11 +153,12 @@ export function ChatProvider({ children, onJobSettled }) {
   }
 
   /** Starts a FASHN look job, polls it, and posts the result. The engine prompt is built on the server. */
-  async function runLook(chatId, { enginePrompt, prompt, images, resolution, signal }) {
+  async function runLook(chatId, { enginePrompt, prompt, images, roles = [], resolution, signal, attempt = 1, extraInstruction = null }) {
     const started = Date.now();
     dispatch({ type: 'RUN_UPDATE', patch: { creating: true, photo: images[0] ?? null, status: 'Creating your look…' } });
     spentRef.current = true;
-    const { jobId } = await backendStartAgentJob({ prompt: enginePrompt, images: images.slice(0, 6), resolution, generation_mode: 'balanced', signal });
+    const engine = extraInstruction ? `${enginePrompt}\n${extraInstruction}` : enginePrompt;
+    const { jobId } = await backendStartAgentJob({ prompt: engine, images: images.slice(0, 6), resolution, generation_mode: 'balanced', signal });
     const final = await pollAgent(jobId, {
       signal,
       onUpdate: (d) => dispatch({ type: 'RUN_UPDATE', patch: { status: friendlyStatus(d.status) } }),
@@ -176,6 +178,7 @@ export function ChatProvider({ children, onJobSettled }) {
         prompt,
         engine: enginePrompt,
         score: { pending: true },
+        attempt,
         resolution,
         used: images,
         seconds: Math.round((Date.now() - started) / 1000),
@@ -183,9 +186,34 @@ export function ChatProvider({ children, onJobSettled }) {
       },
     });
     dispatch({ type: 'SET_LAST_RESULT', chatId, lastResult: { url: ex.images[0], prompt, resolution } });
-    backendScoreLook({ inputs: images.slice(0, 6), output: ex.images[0], request: prompt, brief: enginePrompt })
-      .then((score) => dispatch({ type: 'SET_SCORE', chatId, messageId, score }))
-      .catch(() => dispatch({ type: 'SET_SCORE', chatId, messageId, score: null }));
+    return { messageId, images, roles, resolution, prompt, enginePrompt, attempt, output: ex.images[0] };
+  }
+
+  /**
+   * Scores a finished look in the background and retries it once if it fails.
+   * The chat is not held up: the result is already shown, and the run has ended.
+   */
+  function checkInBackground(chatId, look, { retryable = true } = {}) {
+    backendScoreLook({ inputs: look.images.slice(0, 6), inputRoles: look.roles.slice(0, 6), output: look.output, request: look.prompt, brief: look.enginePrompt })
+      .catch(() => null)
+      .then((score) => {
+        dispatch({ type: 'SET_SCORE', chatId, messageId: look.messageId, score });
+        if (!retryable || !score || score.pass !== false) return;
+        if (abortRef.current) return; // another run is in progress; skip the retry rather than interrupt it
+        withRun(chatId, { creating: true, photo: look.images[0] ?? null, status: 'Improving the look…' }, async (signal) => {
+          const next = await runLook(chatId, {
+            enginePrompt: look.enginePrompt,
+            prompt: look.prompt,
+            images: look.images,
+            roles: look.roles,
+            resolution: look.resolution,
+            signal,
+            attempt: 2,
+            extraInstruction: retryInstruction(score.problems),
+          });
+          checkInBackground(chatId, next, { retryable: false });
+        });
+      });
   }
 
   /** Runs the same look again with the same inputs, prompt and resolution. */
@@ -194,7 +222,7 @@ export function ChatProvider({ children, onJobSettled }) {
       const msg = stateRef.current.chats[chatId]?.messages.find((m) => m.id === messageId);
       if (!msg || msg.kind !== 'look' || !msg.engine || abortRef.current) return;
       return withRun(chatId, { creating: true, photo: msg.used?.[0] ?? null, status: 'Creating your look…' }, (signal) =>
-        runLook(chatId, { enginePrompt: msg.engine, prompt: msg.prompt, images: msg.used ?? [], resolution: msg.resolution ?? RESULT_RESOLUTION, signal })
+        runLook(chatId, { enginePrompt: msg.engine, prompt: msg.prompt, images: msg.used ?? [], resolution: msg.resolution ?? RESULT_RESOLUTION, signal }).then((look) => checkInBackground(chatId, look))
       );
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -284,10 +312,19 @@ export function ChatProvider({ children, onJobSettled }) {
         if (turn.action !== 'generate') return;
 
         const images = [];
-        if (base && (editOf || turn.use_previous)) images.push(base.url);
-        for (const n of turn.use_photos) if (seen[n - 1]) images.push(seen[n - 1].src);
+        const roles = [];
+        if (base && (editOf || turn.use_previous)) {
+          images.push(base.url);
+          roles.push('previous');
+        }
+        turn.use_photos.forEach((n, i) => {
+          if (!seen[n - 1]) return;
+          images.push(seen[n - 1].src);
+          roles.push(turn.image_roles?.[i] ?? 'other');
+        });
 
-        await runLook(chatId, { enginePrompt: turn.enginePrompt, prompt: turn.prompt, images, resolution: base?.resolution ?? RESULT_RESOLUTION, signal });
+        const look = await runLook(chatId, { enginePrompt: turn.enginePrompt, prompt: turn.prompt, images, roles, resolution: base?.resolution ?? RESULT_RESOLUTION, signal });
+        checkInBackground(chatId, look);
       }, id);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -19,9 +19,10 @@ const RESOLUTIONS = [
  * A generated image: live preview, quick tools, the full tools overlay, and download.
  * onTool(tool, src, opts) runs a dedicated module on this image ('upscale' | 'remove_background').
  */
-export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach, busy = false }) {
+export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach, onFix, busy = false }) {
   const [s, setS] = useState(DEFAULT_SETTINGS);
   const [preview, setPreview] = useState(null);
+  const [imgReady, setImgReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [expired, setExpired] = useState(false);
   const [open, setOpen] = useState(false);
@@ -127,11 +128,11 @@ export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach
         ) : (
           <button
             type="button"
-            className="preview-btn"
+            className={`preview-btn ${imgReady ? '' : 'is-loading'}`}
             onClick={() => (m.used?.length ? setCmpOpen(true) : onOpen(m.images, 0))}
             aria-label={m.used?.length ? 'Compare before and after' : 'Open image full screen'}
           >
-            <img src={preview ?? src} alt="Your look" className={preview ? 'ready' : 'loading'} onError={() => !preview && setExpired(true)} />
+            <img src={preview ?? src} alt="Your look" className={preview ? 'ready' : 'loading'} loading="eager" decoding="async" onLoad={() => setImgReady(true)} onError={() => !preview && setExpired(true)} />
           </button>
         )}
         {m.images.length > 1 && <small className="muted">Showing 1 of {m.images.length}. Download saves all of them.</small>}
@@ -242,7 +243,7 @@ export default function ResultBubble({ m, onOpen, onTool, onRegenerate, onAttach
                   <ol className="qa-problems">
                     {m.score.problems.map((p, i) => (
                       <li key={i}>
-                        <b>{QA_AREA_LABEL[p.area] ?? p.area}.</b> {p.detail} <small className="muted">{QA_SOURCE_LABEL[p.source] ?? ''}</small>
+                        <b>{QA_AREA_LABEL[p.area] ?? p.area}.</b> {p.detail} <small className="muted">{QA_SOURCE_LABEL[p.source] ?? ''}</small>{onFix && (<button type="button" className="qa-fix" disabled={busy} onClick={() => { setQaOpen(false); onFix(p.detail); }}>Fix this</button>)}
                       </li>
                     ))}
                   </ol>

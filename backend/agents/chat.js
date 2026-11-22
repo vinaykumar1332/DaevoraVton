@@ -2,6 +2,11 @@
 // then buildPrompt adds the house rules and view corrections. Returns the full turn including enginePrompt.
 // Calls OpenAI directly — no proxy needed on the backend.
 import { normalizeNotes, normalizeView, normalizeStyling, buildPrompt } from './prompt.js';
+import { TURN_RESPONSE_FORMAT, parseTurnReply } from '../../src/agents/schema.js';
+import { mergePhotoFacts, applyRoleOverrides } from '../../src/agents/photoFacts.js';
+import { selectImages } from '../../src/agents/imageBudget.js';
+import { preflight } from '../../src/agents/preflight.js';
+import { logTurn } from '../logTurn.js';
 
 /** Generic code for an upstream failure: no provider name reaches the browser. */
 export const upstreamCode = (status) => (status === 429 ? 'RateLimit' : `Upstream${status}`);
@@ -44,6 +49,7 @@ Your job:
    - "remove": short names of things to remove from the image, up to 5.
    Keep the person's face, expression, skin tone, background and visible accessories unless the user asks to change them.
    For a logo: a garment photo that shows a logo or print gets "logo": true in photo_notes. A logo photo the user sends gets role "logo".
+   Design references: when the user sends a garment photo only for its design (for example "a blouse inspired by this design", "same neckline and border as this", "take the back of this blouse"), set "design_only": true in that photo's note. Only the design is used: its neckline, borders, back cut and sleeve shape. Its colour and fabric are not used unless the user asks for them. Write the prompt so that the colour and fabric come from the user's words or from the main garment, and a saree the user sends stays exactly as in its photo. This applies to Indian garments such as blouses, cholis and kurtas.
    For each garment, also fill what you can see, in a few words each: "pattern" (print or pattern, its scale and arrangement), "colors", "fabric", "details" (embroidery, borders, buttons, zips, stitching), "logo_text" (exact text or logo name, only if readable), and "unclear" (what you cannot see). Describe only what is visible. Never guess.
    Your name is Daevora. You are an AI stylist that creates virtual try-on looks from the user's photos. Do not open replies with a greeting such as "hi" or "hello", and do not repeat your introduction; introduce yourself only when asked your name or what you do.
    Conversation: speak like a warm, professional stylist, in short plain sentences. When a request has several changes, say back in one sentence what you will create. Ask one question at a time, and only when a choice really changes the result.
@@ -51,8 +57,36 @@ Your job:
    If the pose faces away (back or side) and you only have the front of the garment, still generate: say in "reply" that you will match the back to the fabric and that a photo of the garment's back gives exact details.
 
 Reply with JSON only:
-{"reply": string, "action": "reply" | "generate" | "upscale" | "remove_background", "prompt": string, "use_photos": number[], "use_previous": boolean, "resolution": string, "target_photo": number | null, "photo_notes": [{"photo": number, "role": string, "view": string, "worn"?: boolean, "logo"?: boolean, "pattern"?: string, "colors"?: string, "fabric"?: string, "details"?: string, "logo_text"?: string, "unclear"?: string, "length"?: string, "framing"?: string}], "output_view": "front" | "back" | "side" | "three-quarter", "styling": {"tuck": string | null, "sleeves": string | null, "fit": string | null, "pose": string | null, "model": string | null, "add": string[], "remove": string[]}}
+{"reply": string, "action": "reply" | "generate" | "upscale" | "remove_background", "prompt": string, "use_photos": number[], "use_previous": boolean, "resolution": string, "target_photo": number | null, "photo_notes": [{"photo": number, "role": string, "view": string, "worn"?: boolean, "logo"?: boolean, "design_only"?: boolean, "pattern"?: string, "colors"?: string, "fabric"?: string, "details"?: string, "logo_text"?: string, "unclear"?: string, "length"?: string, "framing"?: string}], "output_view": "front" | "back" | "side" | "three-quarter", "styling": {"tuck": string | null, "sleeves": string | null, "fit": string | null, "pose": string | null, "model": string | null, "add": string[], "remove": string[]}}
 For "reply", "upscale" and "remove_background", use an empty prompt, an empty use_photos array, use_previous false and an empty photo_notes array. Use at most 5 photos.`;
+
+const FALLBACK_TURN = {
+  reply: 'Sorry, I could not work that out. Could you describe the look again?',
+  action: 'reply',
+  prompt: '',
+  use_photos: [],
+  use_previous: false,
+  resolution: null,
+  target_photo: null,
+  photo_notes: [],
+  output_view: 'front',
+  styling: { tuck: null, sleeves: null, fit: null, pose: null, model: null, add: [], remove: [] },
+};
+
+/** One call to the chat model. Returns the reply text; HTTP errors throw. */
+async function requestTurn({ messages, openaiKey, signal }) {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
+    body: JSON.stringify({ model: 'gpt-4o', response_format: TURN_RESPONSE_FORMAT, messages }),
+    signal,
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new ApiError({ status: res.status, code: upstreamCode(res.status), message: 'The assistant is unavailable. Try again.' });
+  }
+  return data?.choices?.[0]?.message?.content ?? '';
+}
 
 export function normalizeAction(parsed, { photoCount, newCount, firstNew, prompt }) {
   const known = ['reply', 'generate', 'upscale', 'remove_background'];
@@ -68,17 +102,13 @@ export function normalizeAction(parsed, { photoCount, newCount, firstNew, prompt
  * Which references the engine gets, in order. New photos from this message are always included;
  * the previous result is included when the assistant chose it (e.g. "add these shoes to the last image").
  */
-export function decideReferences(parsed, { photoCount, newCount, firstNew, hasPrevious, forcePrevious = false }) {
-  const picked = (Array.isArray(parsed.use_photos) ? parsed.use_photos : [])
+export function decideReferences(parsed, { photoCount, newCount, firstNew, hasPrevious, forcePrevious = false, facts = [] }) {
+  const listed = (Array.isArray(parsed.use_photos) ? parsed.use_photos : [])
     .map(Number)
-    .filter((x) => Number.isInteger(x) && x >= 1 && x <= photoCount)
-    .slice(0, 5);
-  const usePhotos = [...picked];
-  for (let i = 0; i < newCount; i++) {
-    const idx = firstNew + i;
-    if (!usePhotos.includes(idx) && usePhotos.length < 5) usePhotos.push(idx);
-  }
+    .filter((x) => Number.isInteger(x) && x >= 1 && x <= photoCount);
+  const newPhotos = Array.from({ length: newCount }, (_, i) => firstNew + i);
   const usePrevious = (!!parsed.use_previous || forcePrevious) && !!hasPrevious;
+  const { usePhotos } = selectImages({ previous: usePrevious, usePhotos: listed, newPhotos, facts });
   return { usePhotos, usePrevious };
 }
 
@@ -87,7 +117,7 @@ export function decideReferences(parsed, { photoCount, newCount, firstNew, hasPr
  * photos: [{id, src}] — session photos in order
  * Returns the standard turn shape plus enginePrompt (prompt + house rules + view rules).
  */
-export async function chatTurn({ history, userText, photos, newCount = 0, lastPrompt, hasPrevious, forcePrevious = false, photoMeta = {}, openaiKey, signal }) {
+export async function chatTurn({ history, userText, photos, newCount = 0, lastPrompt, hasPrevious, forcePrevious = false, photoMeta = {}, openaiKey, signal, userId }) {
   const recent = photos.slice(-8);
   const offset = photos.length - recent.length;
   const firstNew = photos.length - newCount + 1;
@@ -149,29 +179,21 @@ export async function chatTurn({ history, userText, photos, newCount = 0, lastPr
   });
   content.push({ type: 'text', text: `User says: ${String(userText || '').slice(0, 1000) || '(sent photos only)'}` });
 
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      response_format: { type: 'json_object' },
-      messages: [{ role: 'system', content: SYSTEM }, ...history, { role: 'user', content }],
-    }),
-    signal,
-  });
-
-  const data = await res.json().catch(() => null);
-  if (!res.ok) {
-    throw new ApiError({ status: res.status, code: upstreamCode(res.status), message: 'The assistant is unavailable. Try again.' });
+  const messages = [{ role: 'system', content: SYSTEM }, ...history, { role: 'user', content }];
+  let parsed = null;
+  for (let attempt = 1; attempt <= 2 && !parsed; attempt++) {
+    const text = await requestTurn({ messages, openaiKey, signal });
+    const checked = parseTurnReply(text);
+    if (checked.ok) parsed = checked.value;
+    else console.warn('[assistant] reply rejected', { attempt, reason: checked.reason, sample: String(text ?? '').slice(0, 200) });
   }
+  if (!parsed) parsed = FALLBACK_TURN;
 
-  let parsed = {};
-  try {
-    parsed = JSON.parse(data?.choices?.[0]?.message?.content ?? '{}');
-  } catch {}
-
-  const { usePhotos, usePrevious } = decideReferences(parsed, { photoCount: photos.length, newCount, firstNew, hasPrevious, forcePrevious });
   const n = photos.length;
+  const tagsByPhoto = Object.fromEntries(photos.map((p, i) => [i + 1, photoMeta[p.id] ?? {}]));
+  const roleOverrides = Object.fromEntries(photos.map((p, i) => [i + 1, photoMeta[p.id]?.role_user]).filter(([, r]) => r));
+  const facts = applyRoleOverrides(mergePhotoFacts({ tagsByPhoto, notes: normalizeNotes(parsed.photo_notes, n), photoCount: n }), roleOverrides);
+  const { usePhotos, usePrevious } = decideReferences(parsed, { photoCount: n, newCount, firstNew, hasPrevious, forcePrevious, facts });
   const prompt = String(parsed.prompt ?? '').slice(0, 10000);
 
   const turn = {
@@ -182,14 +204,23 @@ export async function chatTurn({ history, userText, photos, newCount = 0, lastPr
     use_previous: usePrevious,
     photo_notes: normalizeNotes(parsed.photo_notes, n),
     output_view: normalizeView(parsed.output_view),
+    image_roles: usePhotos.map((p) => facts.find((f) => f.photo === p)?.role ?? 'other'),
     styling: normalizeStyling(parsed.styling),
   };
 
   // Build the full engine prompt (assistant prompt + house rules + view rules) on the server.
+  const check = turn.generate
+    ? preflight({ usePrevious: turn.use_previous, usePhotos: turn.use_photos, outputView: turn.output_view, styling: turn.styling }, facts)
+    : { ok: true };
+  if (!check.ok) {
+    Object.assign(turn, { action: 'reply', generate: false, reply: check.question, prompt: '', use_photos: [], use_previous: false, photo_notes: [] });
+  } else if (check.notice && !turn.reply.includes(check.notice)) {
+    turn.reply = `${turn.reply} ${check.notice}`.trim();
+  }
   const enginePrompt = turn.generate
     ? buildPrompt({
         prompt: turn.prompt,
-        notes: turn.photo_notes,
+        notes: facts,
         usePhotos: turn.use_photos.filter((idx) => idx >= 1 && idx <= n),
         usePrevious: turn.use_previous,
         outputView: turn.output_view,
@@ -197,6 +228,14 @@ export async function chatTurn({ history, userText, photos, newCount = 0, lastPr
       })
     : '';
 
+  logTurn({
+    user: userId ?? null,
+    action: turn.action,
+    photos: photos.map((p) => p.src),
+    roles: facts,
+    plan: { usePhotos: turn.use_photos, usePrevious: turn.use_previous, outputView: turn.output_view, styling: turn.styling },
+    enginePrompt,
+  });
   return { ...turn, enginePrompt };
 }
 

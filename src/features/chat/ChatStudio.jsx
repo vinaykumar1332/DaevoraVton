@@ -62,6 +62,29 @@ function useElapsed(startedAt) {
 }
 
 /** Short tags for a photo's analysis, shown in the preview. */
+const PHOTO_ROLES = [
+  ['model', 'Model'],
+  ['garment', 'Garment'],
+  ['shoes', 'Shoes'],
+  ['accessory', 'Accessory'],
+  ['background', 'Background'],
+  ['pose', 'Pose'],
+  ['logo', 'Logo'],
+  ['other', 'Other'],
+];
+
+/** Soft warnings under a photo. The user can still send it; these only point out likely problems. */
+export function photoWarnings(meta, text = '', size = null) {
+  const out = [];
+  if (size && Math.min(size.w, size.h) < 768) out.push('Small photo: under 768 px. The result may be softer.');
+  if (meta?.role === 'model' && meta.shot && meta.shot !== 'full_body' && /full[\s-]?body|head to (toe|feet)/i.test(text)) {
+    out.push('This photo is not full body, but your request asks for a full body.');
+  }
+  if (meta?.role === 'garment' && meta.unclear) out.push(`Not visible: ${String(meta.unclear).slice(0, 80)}`);
+  if (meta?.role === 'garment' && meta.view === 'back') out.push('Only the back of this garment is visible.');
+  return out;
+}
+
 const SHOT_LABEL = { full_body: 'full body', cropped_head: 'head cropped', three_quarter: 'knees up', half_body: 'half body', close_up: 'close-up' };
 const LENGTH_LABEL = { upper: 'top', lower: 'bottom', full: 'full length' };
 
@@ -102,8 +125,10 @@ export default function ChatStudio({ onNavigate }) {
   const { state, active, run, send, runTool, resend, regenerate, stop, newChat, selectChat, deleteChat } = useChat();
   const [pending, setPending] = useState([]); // photos attached to the message being written
   const [photoMeta, setPhotoMeta] = useState({}); // { [photoId]: analysis } — populated async on upload
+  const [photoSizes, setPhotoSizes] = useState({}); // { [photoId]: { w, h } } read when each thumbnail loads
   const [preview, setPreview] = useState(null); // { src, alt, tags } for the shared photo preview
   const closePreview = useCallback(() => setPreview(null), []);
+  const setPhotoRole = (id, role) => setPhotoMeta((m) => ({ ...m, [id]: { ...m[id], role_user: role, role } }));
   const [editOn, setEditOn] = useState(true); // the next message changes the last look (same image, same resolution)
   const [input, setInput] = useState('');
   const [enhancing, setEnhancing] = useState(false);
@@ -273,6 +298,7 @@ export default function ChatStudio({ onNavigate }) {
               onOpen={(images, index) => setLightbox({ images, index })}
               onTool={(tool, src, opts) => runTool(active.id, { tool, src, ...opts })}
               onRegenerate={() => regenerate(active.id, m.id)}
+              onFix={(detail) => send(active.id, `Fix: ${detail}`, [], photoMeta, { url: m.images[0], prompt: m.prompt, resolution: m.resolution })}
               onAttach={attachResult}
               onResend={(text) => {
                 setAtBottom(true);
@@ -360,8 +386,15 @@ export default function ChatStudio({ onNavigate }) {
                   return (
                     <div className="cattach-item" key={p.id}>
                       <div className="cattach-thumb">
-                        <button type="button" className="cattach-open" onClick={() => setPreview({ src: p.src, alt: `Attached photo ${i + 1}`, tags: tagsOf(meta) })} aria-label={`Preview attached photo ${i + 1}`}>
-                          <img src={p.src} alt="" />
+                        <button type="button" className="cattach-open" onClick={() => setPreview({ src: p.src, alt: `Attached photo ${i + 1}`, tags: tagsOf(meta), photoId: p.id })} aria-label={`Preview attached photo ${i + 1}`}>
+                          <img
+                            src={p.src}
+                            alt=""
+                            onLoad={(e) => {
+                              const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+                              setPhotoSizes((s) => ({ ...s, [p.id]: { w, h } }));
+                            }}
+                          />
                         </button>
                         {tags ? (
                           <div className="cattach-overlay" aria-label={tags.join(', ')}>
@@ -461,7 +494,18 @@ export default function ChatStudio({ onNavigate }) {
           />
         </div>
 
-        {preview && <PhotoPreview src={preview.src} alt={preview.alt} tags={preview.tags} onClose={closePreview} />}
+        {preview && (
+          <PhotoPreview
+            src={preview.src}
+            alt={preview.alt}
+            tags={preview.tags}
+            onClose={closePreview}
+            roleValue={photoMeta[preview.photoId]?.role_user ?? photoMeta[preview.photoId]?.role ?? 'other'}
+            roleOptions={PHOTO_ROLES}
+            onRoleChange={(role) => setPhotoRole(preview.photoId, role)}
+            warnings={photoWarnings(photoMeta[preview.photoId], input, photoSizes[preview.photoId])}
+          />
+        )}
         {lightbox && (
           <Lightbox
             images={lightbox.images}
@@ -581,10 +625,10 @@ function SessionMenu({ state, run, onSelect, onDelete }) {
   );
 }
 
-function Message({ m, busy, onOpen, onTool, onRegenerate, onAttach, onResend }) {
+function Message({ m, busy, onOpen, onTool, onRegenerate, onAttach, onResend, onFix }) {
   if (m.role === 'user') return <UserMessage m={m} busy={busy} onOpen={onOpen} onResend={onResend} />;
 
-  if (m.role === 'result') return <ResultBubble m={m} onOpen={onOpen} onTool={onTool} onRegenerate={onRegenerate} onAttach={onAttach} busy={busy} />;
+  if (m.role === 'result') return <ResultBubble m={m} onOpen={onOpen} onTool={onTool} onRegenerate={onRegenerate} onAttach={onAttach} onFix={onFix} busy={busy} />;
 
   return (
     <div className="msg bot">

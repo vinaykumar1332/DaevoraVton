@@ -77,8 +77,8 @@ export async function backendStartAgentJob({ prompt, images, resolution, generat
  * Quality check of a finished look against its inputs and request.
  * Returns { match, areas, problems }. Callers treat a failure as "no check", so the result still shows.
  */
-export async function backendScoreLook({ inputs, output, request, brief, signal }) {
-  return post(QUALITY_SCORE, { inputs, output, request, brief }, signal);
+export async function backendScoreLook({ inputs, inputRoles, output, request, brief, signal }) {
+  return post(QUALITY_SCORE, { inputs, inputRoles, output, request, brief }, signal);
 }
 
 /**

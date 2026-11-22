@@ -108,6 +108,7 @@ Your job:
    - "remove": short names of things to remove from the image, up to 5.
    Keep the person's face, expression, skin tone, background and visible accessories unless the user asks to change them.
    For a logo: a garment photo that shows a logo or print gets "logo": true in photo_notes. A logo photo the user sends gets role "logo".
+   Design references: when the user sends a garment photo only for its design (for example "a blouse inspired by this design", "same neckline and border as this", "take the back of this blouse"), set "design_only": true in that photo's note. Only the design is used: its neckline, borders, back cut and sleeve shape. Its colour and fabric are not used unless the user asks for them. Write the prompt so that the colour and fabric come from the user's words or from the main garment, and a saree the user sends stays exactly as in its photo. This applies to Indian garments such as blouses, cholis and kurtas.
    For each garment, also fill what you can see, in a few words each: "pattern" (print or pattern, its scale and arrangement), "colors", "fabric", "details" (embroidery, borders, buttons, zips, stitching), "logo_text" (exact text or logo name, only if readable), and "unclear" (what you cannot see). Describe only what is visible. Never guess.
    Your name is Daevora. You are an AI stylist that creates virtual try-on looks from the user's photos. Do not open replies with a greeting such as "hi" or "hello", and do not repeat your introduction; introduce yourself only when asked your name or what you do.
    Conversation: speak like a warm, professional stylist, in short plain sentences. When a request has several changes, say back in one sentence what you will create. Ask one question at a time, and only when a choice really changes the result.
@@ -115,7 +116,7 @@ Your job:
    If the pose faces away (back or side) and you only have the front of the garment, still generate: say in "reply" that you will match the back to the fabric and that a photo of the garment's back gives exact details.
 
 Reply with JSON only:
-{"reply": string, "action": "reply" | "generate" | "upscale" | "remove_background", "prompt": string, "use_photos": number[], "use_previous": boolean, "resolution": string, "target_photo": number | null, "photo_notes": [{"photo": number, "role": string, "view": string, "worn"?: boolean, "logo"?: boolean, "pattern"?: string, "colors"?: string, "fabric"?: string, "details"?: string, "logo_text"?: string, "unclear"?: string, "length"?: string, "framing"?: string}], "output_view": "front" | "back" | "side" | "three-quarter", "styling": {"tuck": string | null, "sleeves": string | null, "fit": string | null, "pose": string | null, "model": string | null, "add": string[], "remove": string[]}}
+{"reply": string, "action": "reply" | "generate" | "upscale" | "remove_background", "prompt": string, "use_photos": number[], "use_previous": boolean, "resolution": string, "target_photo": number | null, "photo_notes": [{"photo": number, "role": string, "view": string, "worn"?: boolean, "logo"?: boolean, "design_only"?: boolean, "pattern"?: string, "colors"?: string, "fabric"?: string, "details"?: string, "logo_text"?: string, "unclear"?: string, "length"?: string, "framing"?: string}], "output_view": "front" | "back" | "side" | "three-quarter", "styling": {"tuck": string | null, "sleeves": string | null, "fit": string | null, "pose": string | null, "model": string | null, "add": string[], "remove": string[]}}
 For "reply", "upscale" and "remove_background", use an empty prompt, an empty use_photos array, use_previous false and an empty photo_notes array. Use at most 5 photos.
 ```
 
@@ -139,41 +140,45 @@ When the action is `generate`, `buildPrompt()` in `src/agents/studioPrompt.js` j
 ### 4.1 House rules (always added, verbatim)
 
 ```
-Studio rules: photorealistic fashion photograph with natural skin, hands and fabric. Keep the person’s face, body and skin tone exactly as in their photo. Reproduce every garment exactly: colour, fabric, print scale, embroidery, borders and fit. Reproduce logos, prints and text on garments exactly as in the photo, and never invent a brand or logo. Garments must sit naturally on the body with realistic folds and drape. Do not add items, text or people that were not asked for. Adults only, fully clothed, no nudity or sexual content. Only use people from the photos the user sent. Keep the face, expression and eye direction of the person unless asked. Keep the sharpness and detail of a print-quality photograph.
+Studio rules: Keep the person’s face, body, skin tone, expression and eye direction exactly as in their photo. Keep any accessories they wear visible and unchanged, unless asked to remove them. Reproduce every garment exactly: colour, fabric, print scale, embroidery, borders and fit. Reproduce logos, prints and text on garments exactly as in the photo, and never invent a brand or logo. Garments must sit naturally on the body with realistic folds and drape. Photorealistic fashion photograph with natural skin, hands and fabric, true colours with no colour shift or oversaturation, realistic light and shadow, and the sharpness of a print-quality photograph. Do not add items, text or people that were not asked for. Adults only, fully clothed, no nudity or sexual content. Only use people from the photos the user sent.
 ```
 
 ### 4.2 Conditional rules (each added only when its condition holds)
 
-- `rules.push('${list(backs)} ${backs.length === 1 ? 'shows' : 'show'} the back of the garment in ${list(fronts)}: use ${backs.length === 1 ? 'it' : 'them'} for the back details only, not as a separate item.');`
-- `rules.push(`
-- `rules.push(`
-- `if (angled) rules.push('Final framing: ${outputView === 'back' ? 'back view' : '${outputView} view'}, matching the pose.');`
-- `rules.push('Tuck the top neatly into the trousers at the waistband, as the user asked.');`
-- `rules.push('${list(tops)} ${tops.length === 1 ? 'is a top' : 'are tops'}: wear it untucked, hanging over the waistband of the trousers, not inside them, even if the photo shows it tucked.');`
-- `if (sleeves === 'rolled' && tops.length) rules.push('Roll the sleeves up neatly to the elbow.');`
-- `if (sleeves === 'down' && tops.length) rules.push('Keep the sleeves fully down.');`
-- `if (fit === 'loose' && garments.length) rules.push('Relaxed, loose fit that drapes naturally.');`
-- `if (fit === 'fitted' && garments.length) rules.push('Close, tailored fit that follows the body.');`
-- `rules.push('${list(logoOnGarment)} ${logoOnGarment.length === 1 ? 'has a logo or print' : 'have logos or prints'}: keep the same design, colours, size and position on the garment as in the photo.');`
-- `if (facts.length) rules.push('Garment in image ${g.image} (${facts.join('; ')}): reproduce these exactly, at the same scale and placement.');`
-- `if (unclear.length) rules.push('Parts not visible in the photos, so do not invent them: ${unclear.join(' ')}');`
-- `rules.push('No model photo was given: create one realistic model who suits these garments (fit, size and style), shown full body in a natural pose.');`
-- `rules.push('${list(worn)} ${worn.length === 1 ? 'shows the garment' : 'show garments'} worn by someone else: copy only the garment, never that person’s face, body, pose or background.');`
-- `if (flat.length) rules.push('${list(flat)} ${flat.length === 1 ? 'is a garment' : 'are garments'} laid flat: put ${flat.length === 1 ? 'it' : 'them'} on the body with a natural fit, drape and folds.');`
-- `if (models.length) rules.push('Keep the framing of the model photo: the same crop and camera distance, showing the same part of the body, so the image ends where the model photo ends.');`
-- `rules.push('Place the person in the setting from ${list(of('background'))}: match its light direction, colour and perspective, and keep the person and the outfit unchanged.');`
-- `if (of('shoes').length) rules.push('Replace the footwear with the shoes from ${list(of('shoes'))}, exactly as shown.');`
-- `if (of('accessory').length) rules.push('Add the accessory from ${list(of('accessory'))} exactly as shown, worn or held naturally.');`
-- `rules.push(`
-- `if (pose === 'change') rules.push('Change the pose as the user asked, keeping the same person, proportions, face and clothing.');`
-- `rules.push('Match the body pose of ${list(poseRefs)} (the pose reference), keeping the same person, face, proportions and clothing.');`
-- `rules.push('Keep the pose of the person exactly as in the model photo: the same body position, arms, hands and head angle.');`
-- `rules.push('Replace the person with the one from image ${newModel}: their face, hair, body and skin tone. Keep the garments, pose, framing and background.');`
-- `if (add.length) rules.push('Add ${add.join(', ')} to the look, worn or placed naturally on the person, at a realistic scale, with matching light and shadow.');`
-- `if (remove.length) rules.push('Remove ${remove.join(', ')} from the image and rebuild the area naturally.');`
-- `rules.push('Keep any accessories visible on the person (a watch, jewellery, glasses, a bag) exactly as in the photo, unless the user asked to remove them.');`
-- `if (!of('background').length) rules.push('Keep the original background and lighting of the model photo.');`
-- `rules.push('Keep colours true to the photos, with no colour shift or oversaturation. Light and shadow match the scene, with soft, realistic shadows under and around the garments.');`
+| Condition | Rule added |
+|---|---|
+| Garment with a back view and a front view | Back photo gives back details only |
+| Angled output, no back photo | Infer the unseen back from how the garment is made |
+| Front-facing output, back photo only | Infer the front from the back photo |
+| Output view back, side or three-quarter | Final framing: that view, matching the pose |
+| Tuck set to in | Tuck the top into the trousers |
+| A top, tuck not set | Top is untucked, hanging over the waistband |
+| Sleeves rolled, with a top | Roll the sleeves to the elbow |
+| Sleeves down, with a top | Keep the sleeves fully down |
+| Fit loose, with a garment | Relaxed, loose fit |
+| Fit fitted, with a garment | Close, tailored fit |
+| Garment with a logo | Keep the same design, colours, size and position |
+| Garment photo marked as design only | Use only its design (neckline, borders, back cut, sleeves), not its colour or fabric |
+| Garment with detail facts | Reproduce these facts exactly at the same scale and placement |
+| Garment with unclear parts | Do not invent the parts not visible |
+| Garment, no model photo, no previous result | Create a realistic model that suits the garments |
+| Garment shown worn by someone else | Copy only the garment, never that person |
+| Garment laid flat | Put it on the body with a natural fit and folds |
+| Model photo used | Keep the framing of the model photo |
+| Background photo used | Place the person in that setting |
+| Shoes photo used | Replace the footwear with those shoes |
+| Accessory photo used | Add the accessory exactly as shown |
+| Logo photo used | Print the logo onto the garment |
+| Pose set to change | Change the pose, keeping the person |
+| Pose set to reference, pose photo used | Match the body pose of the reference |
+| Model photo used, pose not changed | Keep the pose of the model photo |
+| Model swap, second model photo | Replace the person with the one from that photo |
+| Objects to add | Add them naturally, with matching light |
+| Objects to remove | Remove them and rebuild the area |
+| Model photo used, no background photo | Keep the original background and lighting |
+
+Identity block: included only when a model photo is kept (not swapped, not absent). Without it, the prompt carries the garment and scene blocks only.
+
 
 Notes:
 - Image numbers follow the order the engine receives them: the previous result first (when used), then the photos in `use_photos` order.
@@ -181,6 +186,8 @@ Notes:
 
 ## 5. Stage D · Image generation (FASHN)
 
+- **Image budget:** at most 6 images. Order: the previous result, then the model, garments, pose, shoes, background, accessory, other. A NEW photo is added only if the assistant listed it, or the assistant listed no photos and the photo has a role (src/agents/imageBudget.js).
+- **Pre-generation check:** if a fresh try-on has no garment, or a photo has no role, or a model swap has only one model photo, the assistant asks one question instead of generating (src/agents/preflight.js).
 - **Start:** `POST /api/job/agent` with `{ prompt: engine prompt, images (up to 6), resolution, generation_mode: 'balanced' }`. The server forwards this to FASHN's agent image endpoint and returns a job id.
 - **Resolution:** a new look uses the previous result's resolution, or `1k` when there is none.
 - **Status:** the browser polls every 3 seconds and shows progress text (Starting, Waiting in line, Creating your image, Finishing up).
@@ -202,6 +209,8 @@ Upscale this image to {resolution} resolution. This is an upscale only: do not r
 - **Model:** `gpt-4o`, JSON response, `max_tokens: 400`, image `detail: low`.
 - **Score:** each of six areas gets 0 to 100. The overall `match` is the average of the areas, calculated on the server.
 - **Problems:** up to five, each tagged with an area and a source: `output` (the result is wrong), `analysis` (a photo was misread), or `request` (the request was not followed).
+- **Gate:** pass = match at least 85, face at least 85, pose at least 80 and garment at least 85. Thresholds live in src/agents/qualityGate.js.
+- **Retry:** a look that does not pass gets one automatic retry, with the line Fix these problems from the previous attempt followed by the problems, added to the engine prompt. A retry is never retried again.
 - **Display:** a badge on the result. Below 90 it shows a warning, and the details overlay lists the problems. The check is an estimate and can be wrong.
 
 ### System prompt (verbatim)
@@ -236,14 +245,14 @@ You improve requests for a fashion try-on studio. Rewrite the request as one cle
 - Image sources are limited to data URIs and FASHN CDN links, so the server cannot be used to fetch arbitrary URLs.
 - Upstream errors are reduced to a status code and a generic name. No provider names reach the browser.
 
-## 9. Known weak points (for review)
+## 9. Known weak points (still open)
 
-1. **Two models in sequence.** The chat model writes the engine prompt, and nothing checks that prompt against the photos before generation.
-2. **Long, overlapping rules.** The engine prompt combines the assistant text, about 20 conditional rules and the house rules. Some rules repeat each other (keep the face, keep the background, keep the framing), and the engine may weight them unevenly.
-3. **Framing and pose depend on tags.** A wrong tag (for example `shot: full_body` on a head-cropped photo) changes which rules apply. Tags are produced at low detail, so small details such as a cut-off head or a folded hand can be missed.
-4. **The quality check runs after generation.** It reports problems but does not stop or retry a bad result.
-5. **Tests check text, not images.** Unit tests verify the prompt text and the parsing. No automated test checks the generated image.
-6. **Rate limits and browser storage are per instance** on serverless deployments.
+1. **One engine prompt, no image check before generation.** The quality check runs after the result. It can retry once, but nothing inspects the references before the first attempt.
+2. **Many rules.** About 30 conditional rules plus the three blocks. The blocks now say each point once, but the engine may still weight rules unevenly.
+3. **Tags come from low-detail analysis.** A wrong tag changes which rules apply. The user can now correct a photo role, which fixes most of these cases.
+4. **Jobs are not saved across a reload.** A running job is lost if the page reloads.
+5. **Rate limits are in memory,** per instance on serverless. A shared store (Redis) is not added yet, because it needs an approved package.
+6. **Tests check text, not images.** The offline eval (npm run eval) checks the prompt rules. Real image checks need npm run eval -- --live, which spends credits.
 
 ## 10. Questions for review
 

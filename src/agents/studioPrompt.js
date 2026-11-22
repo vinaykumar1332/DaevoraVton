@@ -5,14 +5,16 @@
 export const VIEWS = ['front', 'back', 'side', 'three-quarter', 'flat-lay', 'unknown'];
 export const ROLES = ['model', 'garment', 'shoes', 'accessory', 'background', 'logo', 'pose', 'other'];
 
-/** Always added: realism, identity, garment and logo fidelity, and adult-only content. */
-export const HOUSE_RULES =
-  'Studio rules: photorealistic fashion photograph with natural skin, hands and fabric. Keep the person’s face, body and skin tone ' +
-  'exactly as in their photo. Reproduce every garment exactly: colour, fabric, print scale, embroidery, borders and fit. ' +
-  'Reproduce logos, prints and text on garments exactly as in the photo, and never invent a brand or logo. ' +
-  'Garments must sit naturally on the body with realistic folds and drape. Do not add items, text or people that were not asked for. ' +
-  'Adults only, fully clothed, no nudity or sexual content. Only use people from the photos the user sent. ' +
-  'Keep the face, expression and eye direction of the person unless asked. Keep the sharpness and detail of a print-quality photograph.';
+/** The studio rules in three blocks. Each point is written once. */
+export const IDENTITY_RULES =
+  'Keep the person’s face, body, skin tone, expression and eye direction exactly as in their photo. Keep any accessories they wear visible and unchanged, unless asked to remove them.';
+export const GARMENT_RULES =
+  'Reproduce every garment exactly: colour, fabric, print scale, embroidery, borders and fit. Reproduce logos, prints and text on garments exactly as in the photo, and never invent a brand or logo. Garments must sit naturally on the body with realistic folds and drape.';
+export const SCENE_RULES =
+  'Photorealistic fashion photograph with natural skin, hands and fabric, true colours with no colour shift or oversaturation, realistic light and shadow, and the sharpness of a print-quality photograph. Do not add items, text or people that were not asked for. Adults only, fully clothed, no nudity or sexual content. Only use people from the photos the user sent.';
+/** Added to every generation prompt. Without a kept model photo, the identity block is left out. */
+export const HOUSE_RULES = `Studio rules: ${IDENTITY_RULES} ${GARMENT_RULES} ${SCENE_RULES}`;
+const HOUSE_RULES_NO_IDENTITY = `Studio rules: ${GARMENT_RULES} ${SCENE_RULES}`;
 
 /** Short descriptive fields the vision model fills per garment (kept short so prompts stay focused). */
 const GARMENT_TEXT = [
@@ -117,6 +119,10 @@ export function buildPrompt({ prompt, notes = [], usePhotos = [], usePrevious = 
   }
 
   // Per-garment details from the analysis: keep exactly what is visible, and say what is not.
+  const designOnly = garments.filter((g) => g.design_only).map((g) => g.image);
+  if (designOnly.length) {
+    rules.push(`Use only the design of ${list(designOnly)}: its neckline, borders, back cut and sleeve shape. Do not copy its colour, fabric or print; keep the colour and fabric of the other garments as the user described them.`);
+  }
   for (const g of garments) {
     const facts = [
       g.colors && `colours: ${g.colors}`,
@@ -169,15 +175,10 @@ export function buildPrompt({ prompt, notes = [], usePhotos = [], usePrevious = 
   }
   if (add.length) rules.push(`Add ${add.join(', ')} to the look, worn or placed naturally on the person, at a realistic scale, with matching light and shadow.`);
   if (remove.length) rules.push(`Remove ${remove.join(', ')} from the image and rebuild the area naturally.`);
-  if (models.length) {
-    rules.push('Keep any accessories visible on the person (a watch, jewellery, glasses, a bag) exactly as in the photo, unless the user asked to remove them.');
-    if (!of('background').length) rules.push('Keep the original background and lighting of the model photo.');
-  }
-  if (garments.length || models.length || add.length) {
-    rules.push('Keep colours true to the photos, with no colour shift or oversaturation. Light and shadow match the scene, with soft, realistic shadows under and around the garments.');
-  }
+  if (models.length && !of('background').length) rules.push('Keep the original background and lighting of the model photo.');
 
-  return [String(prompt ?? '').trim(), rules.join(' '), HOUSE_RULES].filter(Boolean).join('\n\n').slice(0, 10000);
+  const keepIdentity = used.some((u) => u.role === 'model') && model !== 'change';
+  return [String(prompt ?? '').trim(), rules.join(' '), keepIdentity ? HOUSE_RULES : HOUSE_RULES_NO_IDENTITY].filter(Boolean).join('\n\n').slice(0, 10000);
 }
 
 /** Cleans the vision model's notes: known roles / views only, valid photo numbers only, one note per photo. */
@@ -197,6 +198,7 @@ export function normalizeNotes(raw, photoCount) {
     // optional details, only kept where they mean something
     if (note.role === 'garment' && n.worn === true) note.worn = true;
     if (note.role === 'garment' && n.logo === true) note.logo = true;
+    if (note.role === 'garment' && n.design_only === true) note.design_only = true;
     if (note.role === 'garment') {
       for (const [key, max] of GARMENT_TEXT) {
         const t = cleanText(n[key], max);

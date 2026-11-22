@@ -3,9 +3,9 @@
 
 const ERRORS = {
   UnauthorizedAccess: ['Setup needed', 'The service is not connected yet. Ask the admin to check the settings.'],
-  RateLimitExceeded: ['Busy right now', 'Too many requests at once. Wait a moment and try again.'],
+  RateLimitExceeded: ['The image service is busy', 'Trying again in a few seconds. You can also wait a moment and press the button again.'],
   ConcurrencyLimitExceeded: ['Busy right now', 'Several images are already being made. Wait for one to finish.'],
-  RateLimit: ['Busy right now', 'Too many requests at once. Wait a moment and try again.'],
+  RateLimit: ['The image service is busy', 'Trying again in a few seconds. You can also wait a moment and press the button again.'],
   OutOfCredits: ['Not enough credits', 'Top up your credits, then try again.'],
   BadRequest: ['Check your photos', 'The photos or settings were not accepted. Try different photos or a shorter prompt.'],
   NoImageGenerated: ['No image was made', 'Try different photos, or describe the look more clearly.'],
@@ -28,8 +28,8 @@ export function friendlyError(e) {
   let detail;
   if (ERRORS[code]) [title, detail] = ERRORS[code];
   else if (e?.status === 401) [title, detail] = ['Setup needed', 'The AI service is not connected yet. Ask the admin to check the settings.'];
-  else if (e?.status === 413) [title, detail] = ['Photos too large', 'The photos are too big to send together. Remove a photo or use smaller photos, then try again.'];
-  else if (code.startsWith('Upstream')) [title, detail] = ['Service unavailable', 'Try again in a moment.'];
+  else if (e?.status === 413) [title, detail] = ['That photo is too large', 'Please use one under 12 MB, or remove a photo and try again.'];
+  else if (code.startsWith('Upstream')) [title, detail] = ['The image service is not responding', 'Try again in a moment.'];
   else [title, detail] = ['Something went wrong', 'Please try again. If it keeps happening, check your photos and settings.'];
 
   // Developers can still see the real error here.

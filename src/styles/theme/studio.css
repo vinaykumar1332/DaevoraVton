@@ -4815,3 +4815,57 @@ h4 {
 .cattach-item .cattach-open {
   background: var(--ds-surface);
 }
+
+/* Photo tray: role selector and soft warnings; result card: Fix this */
+.cattach-role {
+  display: block;
+  width: 6.5rem;
+  margin-top: 0.3rem;
+}
+.cattach-role select {
+  width: 100%;
+  padding: 0.2rem 0.3rem;
+  border: 1px solid var(--ds-line);
+  border-radius: 6px;
+  background: var(--ds-white);
+  color: var(--ds-ink);
+  font: inherit;
+  font-size: 0.7rem;
+}
+.cattach-warn {
+  display: block;
+  width: 6.5rem;
+  margin-top: 0.2rem;
+  color: var(--ds-warn);
+  font-size: 0.66rem;
+  line-height: 1.3;
+}
+.qa-fix {
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--ds-accent);
+  border-radius: 6px;
+  background: var(--ds-white);
+  color: var(--ds-accent-ink);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+
+/* Result card: a placeholder while the image loads, so the card shows at once */
+.preview-btn.is-loading {
+  min-height: 14rem;
+  background: linear-gradient(90deg, var(--ds-surface) 25%, var(--ds-paper) 50%, var(--ds-surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s linear infinite;
+}
+.preview-btn.is-loading img {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .preview-btn.is-loading {
+    animation: none;
+  }
+}

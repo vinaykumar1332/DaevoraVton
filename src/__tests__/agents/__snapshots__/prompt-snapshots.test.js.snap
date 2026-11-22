@@ -1,0 +1,41 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`engine prompt snapshots > back view 1`] = `
+"Show the back.
+
+The pose shows the back of the person, but the garment photos (image 2) show only the front. Keep the person’s pose and work out the unseen back of the garment from how this kind of garment is made: the same fabric, colour, print scale and borders continue around the body (for example a saree pallu drapes over the shoulder and falls down the back, a blouse or shirt has a plain back panel or yoke). Do not copy front-only details to the back: no buttons, plackets, pockets, logos, front prints or text on the back. Final framing: back view, matching the pose. Keep the framing of the model photo: the same crop and camera distance, showing the same part of the body, so the image ends where the model photo ends. Keep the pose of the person exactly as in the model photo: the same body position, arms, hands and head angle. Keep the original background and lighting of the model photo.
+
+Studio rules: Keep the person’s face, body, skin tone, expression and eye direction exactly as in their photo. Keep any accessories they wear visible and unchanged, unless asked to remove them. Reproduce every garment exactly: colour, fabric, print scale, embroidery, borders and fit. Reproduce logos, prints and text on garments exactly as in the photo, and never invent a brand or logo. Garments must sit naturally on the body with realistic folds and drape. Photorealistic fashion photograph with natural skin, hands and fabric, true colours with no colour shift or oversaturation, realistic light and shadow, and the sharpness of a print-quality photograph. Do not add items, text or people that were not asked for. Adults only, fully clothed, no nudity or sexual content. Only use people from the photos the user sent."
+`;
+
+exports[`engine prompt snapshots > model swap 1`] = `
+"Put the second person in the dress.
+
+Keep the framing of the model photo: the same crop and camera distance, showing the same part of the body, so the image ends where the model photo ends. Keep the pose of the person exactly as in the model photo: the same body position, arms, hands and head angle. Replace the person with the one from image 2: their face, hair, body and skin tone. Keep the garments, pose, framing and background. Keep the original background and lighting of the model photo.
+
+Studio rules: Reproduce every garment exactly: colour, fabric, print scale, embroidery, borders and fit. Reproduce logos, prints and text on garments exactly as in the photo, and never invent a brand or logo. Garments must sit naturally on the body with realistic folds and drape. Photorealistic fashion photograph with natural skin, hands and fabric, true colours with no colour shift or oversaturation, realistic light and shadow, and the sharpness of a print-quality photograph. Do not add items, text or people that were not asked for. Adults only, fully clothed, no nudity or sexual content. Only use people from the photos the user sent."
+`;
+
+exports[`engine prompt snapshots > no model photo 1`] = `
+"A dress on a model.
+
+No model photo was given: create one realistic model who suits these garments (fit, size and style), shown full body in a natural pose.
+
+Studio rules: Reproduce every garment exactly: colour, fabric, print scale, embroidery, borders and fit. Reproduce logos, prints and text on garments exactly as in the photo, and never invent a brand or logo. Garments must sit naturally on the body with realistic folds and drape. Photorealistic fashion photograph with natural skin, hands and fabric, true colours with no colour shift or oversaturation, realistic light and shadow, and the sharpness of a print-quality photograph. Do not add items, text or people that were not asked for. Adults only, fully clothed, no nudity or sexual content. Only use people from the photos the user sent."
+`;
+
+exports[`engine prompt snapshots > saree on a model 1`] = `
+"The model wears the saree.
+
+Keep the framing of the model photo: the same crop and camera distance, showing the same part of the body, so the image ends where the model photo ends. Keep the pose of the person exactly as in the model photo: the same body position, arms, hands and head angle. Keep the original background and lighting of the model photo.
+
+Studio rules: Keep the person’s face, body, skin tone, expression and eye direction exactly as in their photo. Keep any accessories they wear visible and unchanged, unless asked to remove them. Reproduce every garment exactly: colour, fabric, print scale, embroidery, borders and fit. Reproduce logos, prints and text on garments exactly as in the photo, and never invent a brand or logo. Garments must sit naturally on the body with realistic folds and drape. Photorealistic fashion photograph with natural skin, hands and fabric, true colours with no colour shift or oversaturation, realistic light and shadow, and the sharpness of a print-quality photograph. Do not add items, text or people that were not asked for. Adults only, fully clothed, no nudity or sexual content. Only use people from the photos the user sent."
+`;
+
+exports[`engine prompt snapshots > shirt and jeans, untucked 1`] = `
+"Dress the model in the shirt and jeans.
+
+image 2 is a top: wear it untucked, hanging over the waistband of the trousers, not inside them, even if the photo shows it tucked. Keep the framing of the model photo: the same crop and camera distance, showing the same part of the body, so the image ends where the model photo ends. Keep the pose of the person exactly as in the model photo: the same body position, arms, hands and head angle. Keep the original background and lighting of the model photo.
+
+Studio rules: Keep the person’s face, body, skin tone, expression and eye direction exactly as in their photo. Keep any accessories they wear visible and unchanged, unless asked to remove them. Reproduce every garment exactly: colour, fabric, print scale, embroidery, borders and fit. Reproduce logos, prints and text on garments exactly as in the photo, and never invent a brand or logo. Garments must sit naturally on the body with realistic folds and drape. Photorealistic fashion photograph with natural skin, hands and fabric, true colours with no colour shift or oversaturation, realistic light and shadow, and the sharpness of a print-quality photograph. Do not add items, text or people that were not asked for. Adults only, fully clothed, no nudity or sexual content. Only use people from the photos the user sent."
+`;
